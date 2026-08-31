@@ -39,11 +39,11 @@ public class SidecarWriter
             Directory.CreateDirectory(directory);
         }
 
-        string tempSidecarPath = $"{targetSidecarPath}.tmp_{Guid.NewGuid():N}.mka";
+        string tempSidecarPath = SidecarNamer.TempPathBeside(targetSidecarPath);
 
         try
         {
-            _logger.LogInformation("Encoding sidecar audio to temporary file: {TempPath}", tempSidecarPath);
+            _logger.LogInformation("Encoding sidecar audio for {TargetPath} to temporary file: {TempPath}", targetSidecarPath, tempSidecarPath);
 
             var result = await _processRunner
                 .RunFfmpegAsync(commandSpec.ArgumentsWritingTo(tempSidecarPath), cancellationToken)

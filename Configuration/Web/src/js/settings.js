@@ -109,6 +109,8 @@
             $('#selNewLibraryPolicy', page).val(newLibraryPolicy);
             showSettleWindow(page);
             $('#txtMaxConcurrentJobs', page).val(config.MaxConcurrentJobs || 1);
+            $('#selSidecarLocation', page).val(sidecarLocationOf(config));
+            showSidecarLocation(page);
 
             // Libraries
             loadSelection(page, true);
@@ -217,6 +219,7 @@
             config.WatchedBy = $('#selWatchedBy', page).val();
             config.WatchedByUserIds = readWatchedAccounts(page);
             config.MaxConcurrentJobs = parseInt($('#txtMaxConcurrentJobs', page).val(), 10) || 1;
+            config.SidecarLocation = $('#selSidecarLocation', page).val();
 
             // Track Selection Rules
             config.TrackSelectionRules = config.TrackSelectionRules || {};

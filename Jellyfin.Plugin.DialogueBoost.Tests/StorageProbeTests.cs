@@ -148,6 +148,32 @@ public class StorageProbeTests
         }
     }
 
+    /// <summary>
+    /// A folder a run is about to create has no free space of its own to report, and <c>DriveInfo</c>
+    /// throws for it — so it is measured where it will be created.
+    /// </summary>
+    [Fact]
+    public void FreeBytesAt_AFolderThatDoesNotExistYet_IsMeasuredAtItsNearestAncestor()
+    {
+        string parent = Path.GetTempPath();
+        string notYet = Path.Combine(parent, "dialogueboost-" + Guid.NewGuid().ToString("N"), "library", "ab");
+
+        long? here = StorageProbe.FreeBytesAt(parent);
+        long? there = StorageProbe.FreeBytesAt(notYet);
+
+        Assert.NotNull(here);
+        Assert.NotNull(there);
+        Assert.InRange(Math.Abs(here!.Value - there!.Value), 0, 256L * 1024 * 1024);
+        Assert.False(Directory.Exists(notYet));
+    }
+
+    [Fact]
+    public void FreeBytesAt_NoPath_IsUnknownRatherThanAThrow()
+    {
+        Assert.Null(StorageProbe.FreeBytesAt(null));
+        Assert.Null(StorageProbe.FreeBytesAt("  "));
+    }
+
     [Fact]
     public void TheExplanationNamesThePathTheAccountAndWhatToLookAt()
     {
@@ -157,6 +183,6 @@ public class StorageProbeTests
         Assert.Contains("/mnt/media/Shows/Show", explanation, StringComparison.Ordinal);
         Assert.Contains("jellyfin", explanation, StringComparison.Ordinal);
         Assert.Contains("0755", explanation, StringComparison.Ordinal);
-        Assert.Contains("STORAGE-PERMISSIONS", explanation, StringComparison.Ordinal);
+        Assert.Contains("ntfs3", explanation, StringComparison.Ordinal);
     }
 }

@@ -14,6 +14,23 @@ namespace Jellyfin.Plugin.DialogueBoost.Api.Models;
 public class StorageReportDto
 {
     /// <summary>
+    /// Gets or sets where tracks are written — a <c>SidecarLocation</c> by name.
+    /// </summary>
+    public string Location { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the least free space on any disk those folders are on, or <c>null</c> where none
+    /// could be read. One disk, for the metadata folder.
+    /// </summary>
+    public long? FreeBytes { get; set; }
+
+    /// <summary>
+    /// Gets or sets how much free space a run leaves on that disk — nothing beside the media, and a
+    /// reserve on the disk holding Jellyfin's own metadata folder. Below it, nothing is written there.
+    /// </summary>
+    public long ReserveBytes { get; set; }
+
+    /// <summary>
     /// Gets or sets the account Jellyfin writes as.
     /// </summary>
     public string ServiceUser { get; set; } = string.Empty;

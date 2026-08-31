@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Jellyfin.Plugin.DialogueBoost.Analysis;
 
 namespace Jellyfin.Plugin.DialogueBoost.Output;
@@ -31,9 +32,12 @@ public static class SidecarNamer
         ReservedFlags.Contains(marker) || LanguageCodes.IsLanguageCode(marker);
 
     /// <summary>
-    /// Where this profile's sidecar belongs beside its source.
+    /// What this profile's track for this source is called. Which folder it goes in is
+    /// <see cref="SidecarPlacement"/>'s answer.
     /// </summary>
     /// <remarks>
+    /// The name starts with the source's own, because that is how Jellyfin decides a file is one of
+    /// the video's tracks — in either folder it reads them from.
     /// <paramref name="claimsDefaultTrack"/> adds Jellyfin's own <c>.default</c> filename token,
     /// which is how a track says playback should start on it. The container's disposition flag is
     /// the weaker mechanism and cannot do this job alone: on a single-stream external file Jellyfin
@@ -41,35 +45,63 @@ public static class SidecarNamer
     /// one profile may write this name — see
     /// <see cref="Configuration.PluginConfiguration.ClaimsDefaultTrack"/>.
     /// </remarks>
-    public static string GetSidecarPath(string sourceVideoPath, string sidecarNamingMarker, bool claimsDefaultTrack = false)
+    public static string FileName(string sourceVideoPath, string sidecarNamingMarker, bool claimsDefaultTrack = false)
     {
         if (string.IsNullOrWhiteSpace(sourceVideoPath))
         {
             throw new ArgumentException("Source video path cannot be empty.", nameof(sourceVideoPath));
         }
 
-        string directory = Path.GetDirectoryName(sourceVideoPath) ?? string.Empty;
         string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceVideoPath);
         string sanitizedMarker = SanitizeMarker(sidecarNamingMarker);
         string claim = claimsDefaultTrack ? ".default" : string.Empty;
 
-        string sidecarFileName = $"{fileNameWithoutExtension}.{sanitizedMarker}{claim}.mka";
-        return Path.Combine(directory, sidecarFileName);
+        return $"{fileNameWithoutExtension}.{sanitizedMarker}{claim}.mka";
     }
 
     /// <summary>
-    /// Every name this profile could have written beside the source, claimed or not.
+    /// Every name this profile could have written for the source, claimed or not.
     /// </summary>
     /// <remarks>
-    /// For the two places that delete rather than write. Which name is current depends on a setting
+    /// For the places that delete rather than write. Which name is current depends on a setting
     /// that may have changed since the file was written, and a sidecar left under the other name is
     /// a track in the audio menu that nothing will ever clean up.
     /// </remarks>
-    public static IEnumerable<string> CandidatePaths(string sourceVideoPath, string sidecarNamingMarker)
+    public static IEnumerable<string> CandidateNames(string sourceVideoPath, string sidecarNamingMarker)
     {
-        yield return GetSidecarPath(sourceVideoPath, sidecarNamingMarker, claimsDefaultTrack: false);
-        yield return GetSidecarPath(sourceVideoPath, sidecarNamingMarker, claimsDefaultTrack: true);
+        yield return FileName(sourceVideoPath, sidecarNamingMarker, claimsDefaultTrack: false);
+        yield return FileName(sourceVideoPath, sidecarNamingMarker, claimsDefaultTrack: true);
     }
+
+    /// <summary>The prefix of every temporary file this plugin writes.</summary>
+    private const string TempPrefix = ".dialogueboost-tmp-";
+
+    /// <summary>The temporary files the plugin wrote before 1.1: the target's name plus a suffix.</summary>
+    private static readonly Regex LegacyTempName = new(@"\.mka\.tmp_[0-9a-f]{32}\.mka$", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Where a track is encoded or copied before it is published under <paramref name="targetPath"/>:
+    /// beside it, so that publishing is a rename on one filesystem, and under a name Jellyfin never
+    /// takes for a track.
+    /// </summary>
+    /// <remarks>
+    /// The name used to be the target's plus a suffix — <c>film.Dialogue Boost.default.mka.tmp_….mka</c>
+    /// — and Jellyfin matches an external track by the video's name as a prefix and its extension,
+    /// so it listed a half-written file as an audio track of that video, and from its
+    /// <c>.default</c> token as the default one. Measured: a copy left under that name was served as
+    /// external stream 0 with <c>IsDefault</c> set, while the same file named
+    /// <c>.dialogueboost-tmp-….mka</c> was not listed at all. It still ends in <c>.mka</c>, because
+    /// that is how ffmpeg chooses the container.
+    /// </remarks>
+    public static string TempPathBeside(string targetPath) =>
+        Path.Combine(Path.GetDirectoryName(targetPath) ?? string.Empty, $"{TempPrefix}{Guid.NewGuid():N}.mka");
+
+    /// <summary>
+    /// Whether a file is a temporary one this plugin wrote, under either naming.
+    /// </summary>
+    public static bool IsTemporary(string fileName) =>
+        (fileName.StartsWith(TempPrefix, StringComparison.Ordinal) && fileName.EndsWith(".mka", StringComparison.Ordinal))
+        || LegacyTempName.IsMatch(fileName);
 
     public static bool IsMarkerValid(string marker, out string errorMessage)
     {

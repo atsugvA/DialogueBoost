@@ -11,15 +11,20 @@ costs time.
 
 ## What the plugin does
 
-It writes an **additional audio track** beside each media file — a `.mka` sidecar carrying a
+It writes an **additional audio track** for each media file — a `.mka` sidecar carrying a
 processed version of the source's audio — and leaves the source file untouched. Jellyfin presents
 the sidecar as another selectable audio track on the same item.
 
 ```
 Movie (2024)/
   Movie (2024).mkv                              ← never touched, never re-muxed
-  Movie (2024).Dialogue Boost.default.mka       ← what this plugin writes
+
+<metadata path>/library/ab/abcd…/               ← Jellyfin's own folder for the item
+  Movie (2024).Dialogue Boost.default.mka       ← what this plugin writes, by default
 ```
+
+By default the track goes in Jellyfin's own folder for the item; `SidecarLocation` can put it beside
+the media instead. See *A track lives in one of two folders, and Jellyfin reads both*, below.
 
 Five profiles decide what the processed audio is: **Dialogue Boost** (lifts the front centre, or
 enhances speech on stereo), **Broadband Night Mode** (`dynaudnorm`), **Speech** (`speechnorm`),
@@ -62,16 +67,17 @@ scripts/                      deploy helper and the verification harnesses
 ItemGate            may we, should we
 CandidateStreams    which tracks qualify
   └─ per profile:
-     SidecarBookkeeping        follow a rename, clear a stale marker
+     SidecarBookkeeping        follow a rename or a change of folder, clear a stale marker
      FfmpegCommandBuilder      the spec
      SidecarWriter             encode to temp → verify → atomic rename
      ProcessingStateRepository record
      IMetadataRefresher        now, or a bounded batch after the loop
 ```
 
-Each stage returns an **outcome**, not just a record: `Written`, `AlreadyDone`, `Skipped`, `Failed`.
-A record cannot carry that — an item found up to date comes back with its *old* success flag — and
-without the outcome a run that encoded nothing reports "Processed: 28".
+Each stage returns an **outcome**, not just a record: `Written`, `Moved`, `AlreadyDone`, `Skipped`,
+`Failed`. A record cannot carry that — an item found up to date comes back with its *old* success
+flag — and without the outcome a run that encoded nothing reports "Processed: 28". `Moved` is its own
+outcome because a track that changed folders needs the refresh a written one gets.
 
 An item the gate refuses is a `Skipped` with **no record**: counted, never written down, because
 "already watched" is a fact about the account and stops being true on its own. Returning nothing for
@@ -105,6 +111,46 @@ now; nothing should grow back toward it.
 ---
 
 ## Things that are true about Jellyfin
+
+### A track lives in one of two folders, and Jellyfin reads both
+
+Every item has a folder of Jellyfin's own — `BaseItem.GetInternalMetadataPath()`,
+`<metadata path>/library/<first two of the id>/<id>`, made the first time Jellyfin stores something
+there. Its external-file resolver reads that folder as well as the one beside the media, on every
+refresh. Measured on 12.2 with the plugin's own output, moved from beside the media into that folder:
+the same external stream 0 with the same default claim, played by Jellyfin's ffmpeg straight from
+there, untouched by a refresh replacing all metadata and images — and **deleted with its folder when
+the item left the library**.
+
+Nothing else on the machine reads that folder. A file beside the video and named after it is what a
+library manager such as Radarr or Sonarr adopts as one of the video's extras, renaming, moving and
+deleting it with the video; a torrent client seeding the media folder sees it too. So the metadata
+folder is the default (`SidecarLocation.MetadataFolder`) and beside the media is the alternative.
+Neither is watched by Jellyfin's library monitor, so a track becomes visible when the plugin refreshes
+the item, which it does after every track it writes **or moves**.
+
+`Output/SidecarPlacement` is the only thing that knows which folder. Everything that finds or deletes
+tracks asks it for **both**, whatever the setting says now: Jellyfin reads both, so a track left in
+the other one is still a row in the audio menu. A changed setting **moves** the tracks on the next
+run instead of encoding them again — across disks through a temporary name beside the destination,
+so a cut-short copy is never under the track's name — and a track that cannot be moved stays where it
+is, still listed and played, until the next run tries again.
+
+The match is by name in both folders: a file is one of the video's tracks when its name starts with
+the video's and it has an audio extension. That is why the file name is the same in either folder,
+and why **a temporary file must never start with the video's name** — one that did was listed as an
+audio track, and from its `.default` token as the one playback starts on.
+
+### Jellyfin will not start with less than 2 GiB free on its own paths
+
+It checks at every start — "successfully checked with … free which is over the minimum of 2GiB" —
+and its data, cache and metadata usually share one disk. A library of tracks must not be what takes
+that disk there, so `ItemGate` keeps **5 GiB** free on it when tracks go to the metadata folder.
+
+Measure free space on the path, not its root: on Unix the root of every absolute path is `/`, so
+`new DriveInfo(root)` reports the system disk whatever the path is. `StorageProbe.FreeBytesAt` asks
+the path itself, or its nearest existing ancestor for a folder about to be created — `DriveInfo`
+throws for one that does not exist.
 
 ### A sidecar renumbers the source's own streams
 
@@ -215,9 +261,20 @@ as seven channels and 7.1 as eight; the height layouts aac refuses fall back to 
 is the only answer that cannot fail.
 
 Every layout with a front centre is in the table — **3.0 upward, not 5.1 upward** — because a row
-missing from it means a downmix to stereo. The three profiles that are not Dialogue Boost take the
+missing from it means a downmix to stereo. That includes the two names only jellyfin-ffmpeg 8
+(Jellyfin 12) has, `5.1.2(back)` and `9.1.6`. The three profiles that are not Dialogue Boost take the
 same carrier through `ChannelLayoutDetector.CarrierFor`; asking aac for everything, which they used
 to do, fails a 5.1.4 source outright with `Unsupported channel layout "5.1.4"`.
+
+### jellyfin-ffmpeg 7 and 8 spell some layouts differently
+
+Jellyfin 10.11 ships jellyfin-ffmpeg 7.1.4 and Jellyfin 12 ships 8.1.3. In 8, `5.1.2` and `5.1.4`
+keep their surrounds in SL SR where 7 says BL BR, the old `5.1.2` became `5.1.2(back)`, and `9.1.6`
+is new. None of that moves a centre-gain graph, which is built by position: the centre is third in
+every one and no count changed. What does differ is the default for **sixteen unnamed channels** —
+`hexadecagonal` in 7, `9.1.6` in 8 — and since the graph names its output after the default it
+assumes, either guess relabels a dozen channels under the other build. A count the builds disagree
+about is not guessed: those streams go to the enhancer, which folds from what the decoder says.
 
 ### A filter can change the channel count
 
@@ -284,8 +341,8 @@ what they hold.
 Every granular delete — a profile, a watched item, one row — does not add up to *everything*.
 `DeleteByProfile` deletes what a **record** names, and a record can be gone while its file is not.
 
-So `Output/SidecarSweep` asks twice and takes the union: the two names each profile writes beside
-**every item in every library** (one `readdir` per directory, not ten `stat`s an episode), and
+So `Output/SidecarSweep` asks twice and takes the union: the two names each profile writes, in both
+folders of **every item in every library** (one `readdir` per directory, not ten `stat`s an episode), and
 whatever the records name — which is the only thing that finds a marker nobody uses any more. What
 neither finds is left alone; **never delete by extension**, because a hand-made `.mka` beside a
 source is a real thing in a real library.
@@ -353,7 +410,7 @@ true, and the ones to check first if you port it.
   rule has to be right per platform. `ProcessRunner.ForLog` renders a quoted line for the log and
   nothing else reads it.
 - **Publishing is a same-volume rename by construction.** `SidecarWriter` writes its temporary file
-  as `<target>.tmp_<guid>.mka`, in the target's own directory, then `File.Move(overwrite: true)`.
+  as `.dialogueboost-tmp-<guid>.mka`, in the target's own directory, then `File.Move(overwrite: true)`.
   On Windows that call still fails when another process holds the destination open — a client
   streaming the very sidecar being replaced — where Linux allows it. The temporary file is removed,
   the item is reported failed, and the next run redoes it. This is the one known behavioural
@@ -390,9 +447,11 @@ it is no substitute for running the thing. Windows and macOS reports are wanted.
 Two harnesses answer for the audio, and both are re-runnable.
 
 **`scripts/check-filter-graphs.sh`** parses the layout table straight out of
-`Analysis/ChannelLayoutDetector.cs` and runs every row through real ffmpeg — the channels each
-layout holds against `ffmpeg -layouts`, the graph built and run, and a per-channel level read back
-off the output. The table cannot drift from the test, because the test reads the table.
+`Analysis/ChannelLayoutDetector.cs` and runs every row through real ffmpeg — each layout's channel
+count and centre position against `ffmpeg -layouts`, the graph built and run, and a per-channel
+level read back off the output. The table cannot drift from the test, because the test reads the
+table. `FF` and `FP` pick the ffmpeg build; run it against both jellyfin-ffmpeg 7 and 8, since the
+plugin installs on Jellyfin versions that ship each.
 
 **`scripts/make-format-fixtures.sh`** builds a 30-movie library of the codecs and layouts this plugin
 has to decide differently about, every track a bed of tones falling 3.74 dB a channel — so a
@@ -432,7 +491,8 @@ dotnet test Jellyfin.Plugin.DialogueBoost.Tests/Jellyfin.Plugin.DialogueBoost.Te
 is not a test project: no output, exit 0, nothing run. Always name the test project, and read the
 `Passed!` line rather than trusting the exit code.
 
-Targets **`net9.0`** because Jellyfin 10.11 runs on .NET 9. Never bump the TFM to match a newer SDK.
+Targets **`net9.0`** because Jellyfin 10.11 runs on .NET 9 — and Jellyfin 12, which runs on .NET 10,
+loads it unchanged. Never bump the TFM to match a newer SDK.
 If the build errors with `NETSDK1127` (missing targeting pack), install the pack rather than
 retargeting.
 

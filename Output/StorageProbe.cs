@@ -163,7 +163,7 @@ public sealed class StorageProbe
     private StorageStatus Describe(StorageState? known, string directory)
     {
         bool? readOnly = IsReadOnlyMount(_mounts(), directory, out string? mountPoint);
-        long? free = FreeBytes(directory);
+        long? free = FreeBytesAt(directory);
 
         var state = known ?? (free is long bytes && bytes < NoSpaceBelowBytes
             ? StorageState.NoSpace
@@ -190,17 +190,60 @@ public sealed class StorageProbe
         }
     }
 
-    private static long? FreeBytes(string directory)
+    /// <summary>
+    /// Free space on the filesystem holding <paramref name="path"/>, or <c>null</c> where it cannot
+    /// be read.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the path itself, never of its root. On Unix the root of every absolute path is
+    /// <c>/</c>, so <c>new DriveInfo(root)</c> measures the system disk whatever the path: a sidecar
+    /// bound for a media volume mounted at <c>/mnt/…</c> was checked against the free space of the
+    /// disk Jellyfin runs from. A folder that does not exist yet — one a run is about to create — is
+    /// measured at its nearest ancestor that does, because the filesystem has to be asked about a
+    /// real path.
+    /// </remarks>
+    public static long? FreeBytesAt(string? path)
     {
+        string? existing = NearestExisting(path);
+        if (existing is null)
+        {
+            return null;
+        }
+
         try
         {
-            string? root = Path.GetPathRoot(Path.GetFullPath(directory));
-            return string.IsNullOrEmpty(root) ? null : new DriveInfo(directory).AvailableFreeSpace;
+            return new DriveInfo(existing).AvailableFreeSpace;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             return null;
         }
+    }
+
+    /// <summary>The path itself if it exists, else its closest ancestor that does.</summary>
+    public static string? NearestExisting(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        string? current;
+        try
+        {
+            current = Path.GetFullPath(path);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
+
+        while (!string.IsNullOrEmpty(current) && !Directory.Exists(current))
+        {
+            current = Path.GetDirectoryName(current);
+        }
+
+        return string.IsNullOrEmpty(current) ? null : current;
     }
 
     private static IEnumerable<string> ReadMountInfo()

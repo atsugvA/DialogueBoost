@@ -142,7 +142,7 @@ public class FfmpegCommandBuilderTests
         var profile = new DialogueBoostProfile { ProcessLanguages = new List<string> { "rus" } };
         var spec = FfmpegCommandBuilder.BuildCommand(Source, RussianOnly(), profile);
 
-        const string Temp = "/media/movies/film.Dialogue Boost.mka.tmp_9fc3.mka";
+        const string Temp = "/media/movies/.dialogueboost-tmp-9fc3.mka";
         var final = spec.ArgumentsWritingTo(Destination);
         var temp = spec.ArgumentsWritingTo(Temp);
 

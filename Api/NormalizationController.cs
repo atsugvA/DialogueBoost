@@ -34,6 +34,7 @@ public class NormalizationController : ControllerBase
     private readonly ItemProcessor _itemProcessor;
     private readonly ProcessingStateRepository _stateRepository;
     private readonly IMetadataRefresher _refresher;
+    private readonly SidecarPlacement _placement;
     private readonly SelectionStore _selectionStore;
     private readonly CleanupRunOverride _cleanupOverride;
     private readonly WorkForecaster _forecaster;
@@ -45,6 +46,7 @@ public class NormalizationController : ControllerBase
         ItemProcessor itemProcessor,
         ProcessingStateRepository stateRepository,
         IMetadataRefresher refresher,
+        SidecarPlacement placement,
         SelectionStore selectionStore,
         CleanupRunOverride cleanupOverride,
         WorkForecaster forecaster,
@@ -55,6 +57,7 @@ public class NormalizationController : ControllerBase
         _itemProcessor = itemProcessor;
         _stateRepository = stateRepository;
         _refresher = refresher;
+        _placement = placement;
         _selectionStore = selectionStore;
         _cleanupOverride = cleanupOverride;
         _forecaster = forecaster;
@@ -187,7 +190,7 @@ public class NormalizationController : ControllerBase
         // A track nobody can select is not a track. Deleting a sidecar here already re-read the
         // item; writing one did not, so a file asked for by hand stayed invisible until something
         // else — a scan, or the next scheduled run's refresh of some other item — happened past it.
-        if (results.Any(result => result.Outcome == ProcessingOutcome.Written))
+        if (results.Any(result => result.ChangedFiles))
         {
             await _refresher.RefreshNowAsync(item, cancellationToken).ConfigureAwait(false);
         }
@@ -217,6 +220,7 @@ public class NormalizationController : ControllerBase
             .ToList();
 
         int written = 0;
+        int moved = 0;
         int alreadyDone = 0;
         int skipped = 0;
         int failed = 0;
@@ -243,6 +247,10 @@ public class NormalizationController : ControllerBase
                         Interlocked.Increment(ref written);
                         refreshable.Add(item);
                         break;
+                    case ProcessingOutcome.Moved:
+                        Interlocked.Increment(ref moved);
+                        refreshable.Add(item);
+                        break;
                     case ProcessingOutcome.AlreadyDone: Interlocked.Increment(ref alreadyDone); break;
                     case ProcessingOutcome.Failed: Interlocked.Increment(ref failed); break;
                     default: Interlocked.Increment(ref skipped); break;
@@ -262,6 +270,7 @@ public class NormalizationController : ControllerBase
             FolderName = folderItem.Name,
             TotalVideoItems = videoItems.Count,
             WrittenCount = written,
+            MovedCount = moved,
             AlreadyDoneCount = alreadyDone,
             SkippedCount = skipped,
             FailedCount = failed
@@ -359,11 +368,11 @@ public class NormalizationController : ControllerBase
         {
             foreach (var prof in profiles)
             {
-                // Both the name the profile writes today and the one its record was written under:
-                // a marker renamed since then leaves a file at the old name, and deleting the
-                // record is what would otherwise strand it for good.
+                // Both names the profile could write, in both folders a track can be in, and the
+                // path its record was written under: a marker renamed since then leaves a file at
+                // the old name, and deleting the record is what would otherwise strand it for good.
                 var record = await _stateRepository.GetRecordAsync(itemIdStr, prof.Id).ConfigureAwait(false);
-                foreach (var path in SidecarNamer.CandidatePaths(item.Path, prof.SidecarNamingMarker)
+                foreach (var path in _placement.CandidatePaths(item, prof.SidecarNamingMarker)
                              .Append(record?.SidecarPath)
                              .Where(path => !string.IsNullOrWhiteSpace(path))
                              .Distinct(StringComparer.Ordinal))

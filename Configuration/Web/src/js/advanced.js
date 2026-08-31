@@ -22,9 +22,55 @@ function whenTicks(ticks) {
 
 /* ── storage, in full ───────────────────────────────────────────────────────────────────── */
 
+// What each place a track can go is called on this page, and what choosing it costs. The profile
+// cards name the place too, so both read from here.
+var SIDECAR_LOCATIONS = {
+    MetadataFolder: {
+        writes: 'Writes, in Jellyfin\'s own folder for each item',
+        note: 'Jellyfin keeps a folder of its own for every item and plays audio tracks from it just as ' +
+              'it does from beside the file. Nothing else looks there, so Radarr, Sonarr and torrent ' +
+              'clients never see these tracks, and Jellyfin deletes them along with the item. They ' +
+              'take space on the disk Jellyfin keeps its own data on, and the plugin keeps 5 GB of ' +
+              'that disk free, because Jellyfin will not start with less than 2.'
+    },
+    BesideMedia: {
+        writes: 'Writes, beside each source file',
+        note: 'Each track sits next to its video, where other players can use it too — and where ' +
+              'Radarr, Sonarr and similar tools may take it for one of the video\'s extras and rename, ' +
+              'move or delete it along with the video. Needs write access to every media folder.'
+    }
+};
+
+function sidecarLocationOf(config) {
+    return config.SidecarLocation === 'BesideMedia' || config.SidecarLocation === 1 ? 'BesideMedia' : 'MetadataFolder';
+}
+
+function showSidecarLocation(page) {
+    var where = SIDECAR_LOCATIONS[page.querySelector('#selSidecarLocation').value] || SIDECAR_LOCATIONS.MetadataFolder;
+    page.querySelector('#sidecarLocationNote').textContent = where.note;
+    page.querySelectorAll('[data-writes-where]').forEach(function (label) {
+        label.textContent = where.writes;
+    });
+}
+
+// Below the reserve, the gate refuses every item headed for that disk; saying so here is the only
+// place the reason is visible without reading the log.
+function storageIsTight(report) {
+    return !!report && report.ReserveBytes > 0 && typeof report.FreeBytes === 'number' &&
+        report.FreeBytes < report.ReserveBytes;
+}
+
 function renderStorageDetail(report) {
     var problems = (report && report.Problems) || [];
     var checked = (report && report.FoldersChecked) || 0;
+    var free = report && report.FreeBytes;
+
+    document.getElementById('advStorageFree').innerHTML = typeof free !== 'number'
+        ? 'unknown'
+        : storageIsTight(report)
+            ? '<span class="db-bad">' + esc(size(free)) + '</span> — under the ' + esc(size(report.ReserveBytes)) +
+              ' the plugin keeps free on Jellyfin\'s own disk, so nothing more is written there'
+            : esc(size(free));
 
     document.getElementById('advStorageUser').textContent = (report && report.ServiceUser) || 'unknown';
     document.getElementById('advStorageCount').innerHTML = checked
@@ -344,6 +390,7 @@ function renderProfileChoices(page, config) {
 }
 
 function bindAdvanced(page) {
+    page.querySelector('#selSidecarLocation').onchange = function () { showSidecarLocation(page); };
     page.querySelector('#selWatchedBy').onchange = function () {
         if (this.value === 'ChosenAccounts') {
             fillWatchedAccountsForSwitch(page);

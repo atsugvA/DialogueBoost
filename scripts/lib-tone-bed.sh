@@ -10,8 +10,10 @@
 # channel the stream does not carry with silence, exit 0 and no warning, so every 5.1 sidecar the
 # plugin wrote for months had two dead surrounds and still sounded like a working track.
 
-FF=$(command -v /usr/lib/jellyfin-ffmpeg/ffmpeg || command -v ffmpeg) || { echo "no ffmpeg on PATH" >&2; exit 1; }
-FP=$(command -v /usr/lib/jellyfin-ffmpeg/ffprobe || command -v ffprobe) || { echo "no ffprobe on PATH" >&2; exit 1; }
+# FF and FP may be set to run against another build — the plugin has to be right for every
+# generation of jellyfin-ffmpeg the Jellyfin versions it installs on ship, and they disagree.
+FF=${FF:-$(command -v /usr/lib/jellyfin-ffmpeg/ffmpeg || command -v ffmpeg)} || { echo "no ffmpeg on PATH" >&2; exit 1; }
+FP=${FP:-$(command -v /usr/lib/jellyfin-ffmpeg/ffprobe || command -v ffprobe)} || { echo "no ffprobe on PATH" >&2; exit 1; }
 readonly FF FP
 
 # tone_bed <layout> <output.wav> [seconds] — 24-bit PCM at the named layout.

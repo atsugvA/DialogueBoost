@@ -24,6 +24,7 @@ public class CleanUpWatchedTask : IScheduledTask
     private readonly WatchedItems _watched;
     private readonly ProcessingStateRepository _stateRepository;
     private readonly IMetadataRefresher _refresher;
+    private readonly SidecarPlacement _placement;
     private readonly SelectionStore _selectionStore;
     private readonly ScopeResolver _scopeResolver;
     private readonly CleanupRunOverride _runOverride;
@@ -42,6 +43,7 @@ public class CleanUpWatchedTask : IScheduledTask
         WatchedItems watched,
         ProcessingStateRepository stateRepository,
         IMetadataRefresher refresher,
+        SidecarPlacement placement,
         SelectionStore selectionStore,
         ScopeResolver scopeResolver,
         CleanupRunOverride runOverride,
@@ -51,6 +53,7 @@ public class CleanUpWatchedTask : IScheduledTask
         _watched = watched;
         _stateRepository = stateRepository;
         _refresher = refresher;
+        _placement = placement;
         _selectionStore = selectionStore;
         _scopeResolver = scopeResolver;
         _runOverride = runOverride;
@@ -231,11 +234,12 @@ public class CleanUpWatchedTask : IScheduledTask
             // Also check on-disk sidecar paths for all enabled profiles (in case DB record is missing)
             if (!string.IsNullOrWhiteSpace(baseItem.Path))
             {
-                // Both names a profile could have written: the one it writes today and the one it
-                // wrote while it was the profile playback started on. A file left under the other
-                // name is a track in the audio menu that nothing would ever collect.
+                // Both names a profile could have written — the one it writes today and the one it
+                // wrote while it was the profile playback started on — in both folders a track can
+                // be in. A file left under the other name, or the other setting, is a track in the
+                // audio menu that nothing would ever collect.
                 foreach (var computedSidecarPath in profiles.SelectMany(
-                             prof => SidecarNamer.CandidatePaths(baseItem.Path, prof.SidecarNamingMarker)))
+                             prof => _placement.CandidatePaths(baseItem, prof.SidecarNamingMarker)))
                 {
                     if (!processedPaths.Contains(computedSidecarPath) && File.Exists(computedSidecarPath))
                     {

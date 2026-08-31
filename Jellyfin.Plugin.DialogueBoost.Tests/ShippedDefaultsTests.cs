@@ -106,4 +106,16 @@ public class ShippedDefaultsTests
         Assert.True(config.PauseDuringActivePlayback);
         Assert.False(config.DryRun);
     }
+
+    /// <summary>
+    /// Tracks go to Jellyfin's own folder for each item, where nothing else on the machine looks: a
+    /// file beside the media is adopted by library managers as one of the video's extras, and
+    /// renamed, moved and deleted with it. A configuration saved before the setting existed has no
+    /// element for it, so this default is also what an upgraded server runs.
+    /// </summary>
+    [Fact]
+    public void OutOfTheBox_TracksGoToJellyfinsOwnFolderForEachItem()
+    {
+        Assert.Equal(SidecarLocation.MetadataFolder, new PluginConfiguration().SidecarLocation);
+    }
 }

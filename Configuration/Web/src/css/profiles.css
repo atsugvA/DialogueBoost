@@ -33,6 +33,16 @@
     margin: 0;
 }
 
+/* Jellyfin's own stylesheet gives an emby-checkbox label `width: 100%`, so in a flex row it takes
+   whatever room is going: 349 of 801px in the open card's head, which squeezed the name and its
+   description into 177px, and 443 in a collapsed row, which left the name 41px against the chevron.
+   Sized to its checkbox — the label's own padding — each sits beside its switch. */
+.db-prof-head > label,
+.db-alt-head > label {
+    flex: none;
+    width: auto;
+}
+
 /*
  * emby-checkbox's attachedCallback takes the first <span> inside the checkbox's parent and
  * adds a class to it. With no span it throws on null, and the polyfill abandons the rest of
