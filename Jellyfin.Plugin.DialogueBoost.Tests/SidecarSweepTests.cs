@@ -4,13 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Data.Enums;
-using Jellyfin.Plugin.DialogueBoost.Integration;
 using Jellyfin.Plugin.DialogueBoost.Output;
 using Jellyfin.Plugin.DialogueBoost.State;
-using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -25,7 +21,7 @@ public class SidecarSweepTests : IDisposable
     private readonly string _root;
     private readonly string _dbPath;
     private readonly ProcessingStateRepository _state;
-    private readonly FakeLibrary _library = new();
+    private readonly FakeMediaLibrary _library;
     private readonly SidecarSweep _sweep;
 
     public SidecarSweepTests()
@@ -34,7 +30,9 @@ public class SidecarSweepTests : IDisposable
         Directory.CreateDirectory(_root);
         _dbPath = Path.Combine(_root, "state.db");
         _state = new ProcessingStateRepository(_dbPath, NullLogger<ProcessingStateRepository>.Instance);
-        _sweep = new SidecarSweep(_library, _state, NullLogger<SidecarSweep>.Instance);
+        _library = new FakeMediaLibrary(Path.Combine(_root, "metadata"));
+        _sweep = new SidecarSweep(
+            _library, new SidecarPlacement(_library), _state, NullLogger<SidecarSweep>.Instance);
     }
 
     public void Dispose()
@@ -140,6 +138,78 @@ public class SidecarSweepTests : IDisposable
         Assert.Empty(found.Files);
     }
 
+    /// <summary>
+    /// What an encode cut short leaves: a temporary file under either naming. Both go; a temporary
+    /// file a run is writing right now stays, and so does everything that is not one.
+    /// </summary>
+    [Fact]
+    public void RemoveLeftoverTemps_TakesTheOldOnesUnderEitherName_AndLeavesTheRest()
+    {
+        string source = Source("Movie F");
+        string legacy = Beside("Movie F", "Movie F.Dialogue Boost.default.mka.tmp_0123456789abcdef0123456789abcdef.mka");
+        string current = Beside("Movie F", ".dialogueboost-tmp-0123456789abcdef0123456789abcdef.mka");
+        string inFlight = Beside("Movie F", ".dialogueboost-tmp-fedcba9876543210fedcba9876543210.mka");
+        string track = Beside("Movie F", "Movie F.Dialogue Boost.default.mka");
+        string theirs = Beside("Movie F", "Movie F.Commentary.mka");
+
+        var serverStarted = DateTime.UtcNow;
+        foreach (var path in new[] { legacy, current, track, theirs })
+        {
+            File.SetLastWriteTimeUtc(path, serverStarted.AddHours(-1));
+        }
+
+        File.SetLastWriteTimeUtc(inFlight, serverStarted.AddSeconds(30));
+
+        int removed = _sweep.RemoveLeftoverTemps(serverStarted, CancellationToken.None);
+
+        Assert.Equal(2, removed);
+        Assert.False(File.Exists(legacy));
+        Assert.False(File.Exists(current));
+        Assert.True(File.Exists(inFlight));
+        Assert.True(File.Exists(track));
+        Assert.True(File.Exists(theirs));
+        Assert.True(File.Exists(source));
+    }
+
+    /// <summary>
+    /// A track in the item's metadata folder is as much a track as one beside it — Jellyfin reads
+    /// both — so the way out has to find it, whichever folder the setting names today.
+    /// </summary>
+    [Fact]
+    public async Task FindAsync_AlsoLooksInEveryItemsMetadataFolder_AndTakesOnlyWhatIsOurs()
+    {
+        string source = Source("Movie G");
+        string beside = Beside("Movie G", "Movie G.Dialogue Boost.default.mka");
+        string inMetadata = InMetadata(source, "Movie G.Broadband Night Mode.mka");
+        string jellyfins = InMetadata(source, "Movie G.eng.srt");
+        string notOurs = InMetadata(source, "Movie G.Commentary.mka");
+
+        var found = await _sweep.FindAsync(CancellationToken.None);
+
+        Assert.Equal(
+            new[] { beside, inMetadata }.OrderBy(p => p, StringComparer.Ordinal),
+            found.Files.OrderBy(p => p, StringComparer.Ordinal));
+        Assert.Single(found.Items);
+        Assert.True(File.Exists(jellyfins));
+        Assert.True(File.Exists(notOurs));
+    }
+
+    /// <summary>An encode cut short leaves its temporary file wherever it was writing — here too.</summary>
+    [Fact]
+    public void RemoveLeftoverTemps_AlsoClearsMetadataFolders()
+    {
+        string source = Source("Movie H");
+        string temp = InMetadata(source, ".dialogueboost-tmp-0123456789abcdef0123456789abcdef.mka");
+        string track = InMetadata(source, "Movie H.Dialogue Boost.default.mka");
+        var serverStarted = DateTime.UtcNow;
+        File.SetLastWriteTimeUtc(temp, serverStarted.AddHours(-1));
+        File.SetLastWriteTimeUtc(track, serverStarted.AddHours(-1));
+
+        Assert.Equal(1, _sweep.RemoveLeftoverTemps(serverStarted, CancellationToken.None));
+        Assert.False(File.Exists(temp));
+        Assert.True(File.Exists(track));
+    }
+
     /* ── the fixture ────────────────────────────────────────────────────────────────────── */
 
     private string Source(string name)
@@ -159,6 +229,16 @@ public class SidecarSweepTests : IDisposable
         return path;
     }
 
+    private string InMetadata(string source, string fileName)
+    {
+        var item = _library.Items.First(i => string.Equals(i.Path, source, StringComparison.Ordinal));
+        string folder = _library.MetadataFolderOf(item);
+        Directory.CreateDirectory(folder);
+        string path = Path.Combine(folder, fileName);
+        File.WriteAllText(path, "track");
+        return path;
+    }
+
     private Task Record(string folder, string sidecarPath, string profileId = "dialogue-boost") =>
         _state.SaveRecordAsync(new ProcessedItemRecord
         {
@@ -171,34 +251,4 @@ public class SidecarSweepTests : IDisposable
             ProfileParamsHash = "hash",
             ProcessedAtUtc = DateTime.UtcNow.Ticks
         });
-
-    /// <summary>
-    /// The seam is the only place a test can stand, so the fake is a class rather than a mock.
-    /// </summary>
-    private sealed class FakeLibrary : IMediaLibrary
-    {
-        private readonly BaseItem _library = new Movie { Id = Guid.NewGuid(), Name = "Library" };
-
-        public List<BaseItem> Items { get; } = new();
-
-        public event EventHandler<ItemChangeEventArgs>? ItemAdded { add { } remove { } }
-
-        public void Add(string path) =>
-            Items.Add(new Movie { Id = Guid.NewGuid(), Name = Path.GetFileName(path), Path = path });
-
-        public string IdOf(string path) =>
-            Items.First(item => string.Equals(item.Path, path, StringComparison.Ordinal)).Id.ToString("N");
-
-        public BaseItem? ById(Guid id) => Items.FirstOrDefault(item => item.Id == id);
-
-        public IReadOnlyList<BaseItem> Libraries() => new[] { _library };
-
-        public IReadOnlyList<BaseItem> LibrariesOf(BaseItem item) => new[] { _library };
-
-        public IReadOnlyList<BaseItem> RootFolders() => new[] { _library };
-
-        public IReadOnlyList<BaseItem> Under(Guid parentId, BaseItemKind[] kinds, bool recursive) => Items;
-
-        public IReadOnlyList<BaseItem> Within(BaseItem parent, BaseItemKind[] kinds) => Items;
-    }
 }

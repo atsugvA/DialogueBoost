@@ -143,9 +143,10 @@ public class NormalizeLibraryTask : IScheduledTask
                     {
                         tally[result.Outcome] = tally.GetValueOrDefault(result.Outcome) + 1;
 
-                        // Only a track written now needs Jellyfin to look again. One that was already
-                        // there was already visible, and refreshing it is work for no change.
-                        if (result.Outcome == ProcessingOutcome.Written && !written.Contains(item))
+                        // Only a track written or moved now needs Jellyfin to look again. One that
+                        // was already there was already visible, and refreshing it is work for no
+                        // change.
+                        if (result.ChangedFiles && !written.Contains(item))
                         {
                             written.Add(item);
                         }
@@ -170,8 +171,9 @@ public class NormalizeLibraryTask : IScheduledTask
         progress.Report(100.0);
 
         _logger.LogInformation(
-            "DialogueBoost normalization finished. Wrote {Written}, already current {AlreadyDone}, skipped {Skipped}, failed {Failed}.",
+            "DialogueBoost normalization finished. Wrote {Written}, moved {Moved}, already current {AlreadyDone}, skipped {Skipped}, failed {Failed}.",
             tally.GetValueOrDefault(ProcessingOutcome.Written),
+            tally.GetValueOrDefault(ProcessingOutcome.Moved),
             tally.GetValueOrDefault(ProcessingOutcome.AlreadyDone),
             tally.GetValueOrDefault(ProcessingOutcome.Skipped),
             tally.GetValueOrDefault(ProcessingOutcome.Failed));

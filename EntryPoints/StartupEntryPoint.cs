@@ -1,9 +1,8 @@
 using System;
 using System.Globalization;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.DialogueBoost.Integration;
+using Jellyfin.Plugin.DialogueBoost.Output;
 using Jellyfin.Plugin.DialogueBoost.ScheduledTasks;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -26,23 +25,23 @@ namespace Jellyfin.Plugin.DialogueBoost.EntryPoints;
 /// </remarks>
 public class StartupEntryPoint : IHostedService
 {
-    private readonly IMediaLibrary _library;
+    private readonly SidecarSweep _sweep;
     private readonly ITaskManager _taskManager;
     private readonly ILogger<StartupEntryPoint> _logger;
 
     public StartupEntryPoint(
-        IMediaLibrary library,
+        SidecarSweep sweep,
         ITaskManager taskManager,
         ILogger<StartupEntryPoint> logger)
     {
-        _library = library;
+        _sweep = sweep;
         _taskManager = taskManager;
         _logger = logger;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        CleanupOrphanedTempFiles();
+        RemoveLeftoverTemps(DateTime.UtcNow, TimeSpan.FromSeconds(5));
 
         RunIfDailyRunWasMissed(PluginTasks.CleanupKey, TimeSpan.FromSeconds(10));
         RunIfDailyRunWasMissed(PluginTasks.NormalizeKey, TimeSpan.FromSeconds(15));
@@ -52,34 +51,37 @@ public class StartupEntryPoint : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    private void CleanupOrphanedTempFiles()
+    /// <summary>
+    /// Deletes what an encode cut short by a crash or a hard stop left behind.
+    /// </summary>
+    /// <remarks>
+    /// It used to walk <c>RootFolder.Children</c>, whose paths are Jellyfin's own
+    /// <c>root/default/&lt;library&gt;</c> folders — the <c>.mblink</c> files that point at the media,
+    /// not the media — so it never reached a folder a sidecar is written into. It asks the library
+    /// for its items now, as the sweep does, and in the background: a walk over the library is not
+    /// something Jellyfin's startup should wait for. Only files last written before this server
+    /// started are touched, so a run that begins meanwhile keeps its own.
+    /// </remarks>
+    private void RemoveLeftoverTemps(DateTime serverStartedUtc, TimeSpan delay)
     {
-        try
+        _ = Task.Run(async () =>
         {
-            var rootFolders = _library.RootFolders();
-            foreach (var folder in rootFolders)
+            try
             {
-                if (folder.Path == null || !Directory.Exists(folder.Path)) continue;
+                await Task.Delay(delay).ConfigureAwait(false);
 
-                var tempFiles = Directory.EnumerateFiles(folder.Path, "*.tmp_*.mka", SearchOption.AllDirectories);
-                foreach (var tempFile in tempFiles)
+                int removed = _sweep.RemoveLeftoverTemps(serverStartedUtc, CancellationToken.None);
+                if (removed > 0)
                 {
-                    try
-                    {
-                        _logger.LogInformation("Cleaning up orphaned temporary sidecar file: {Path}", tempFile);
-                        File.Delete(tempFile);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed deleting temp file: {Path}", tempFile);
-                    }
+                    _logger.LogInformation(
+                        "DialogueBoost: removed {Count} temporary file(s) left by encodes that never finished.", removed);
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error occurred during orphaned temp file cleanup.");
-        }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DialogueBoost: could not clear the temporary files of unfinished encodes.");
+            }
+        });
     }
 
     /// <summary>

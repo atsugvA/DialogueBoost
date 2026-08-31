@@ -106,7 +106,8 @@ public static class ChannelLayoutDetector
     /// without that aac refuses.
     /// </summary>
     /// <remarks>
-    /// Two measurements decide each row, both on jellyfin-ffmpeg 7.1.4 and both re-runnable with
+    /// Two measurements decide each row, both first made on jellyfin-ffmpeg 7.1.4, re-made on 8.1.3
+    /// — what Jellyfin 12 ships — and both re-runnable against either with
     /// <c>scripts/check-filter-graphs.sh</c>.
     /// <para>
     /// <b>Which channels the layout holds</b> comes from <c>ffmpeg -layouts</c>. It is what
@@ -117,11 +118,19 @@ public static class ChannelLayoutDetector
     /// half is wrong.
     /// </para>
     /// <para>
+    /// The two builds do not spell every layout alike. 8.1.3 moved the surrounds of <c>5.1.2</c> and
+    /// <c>5.1.4</c> from BL BR to SL SR, kept the old shape as <c>5.1.2(back)</c>, and added
+    /// <c>9.1.6</c>; the rows follow 8.1.3. None of it moves a graph — the centre is third in every
+    /// one, the count is unchanged, and the graph is built by position — so a row spelled for one
+    /// build is right under the other, and a row only 8.1.3 has a name for is one no stream can
+    /// arrive under on 7.1.4.
+    /// </para>
+    /// <para>
     /// <b>Which encoder to hand it to</b> was measured by encoding a tone bed at every standard
     /// layout and reading the channel count back. jellyfin-ffmpeg's eac3 encoder lists nothing above
     /// 5.1 and folds anything larger without failing — 6.1, 7.1 and 7.1.4 all came back as six
     /// channels of 5.1(side), exit 0, no warning. So eac3 is used for the layouts it lists, and aac
-    /// for the rest, because aac carries 6.1 as seven channels and 7.1 as eight. The eight rows
+    /// for the rest, because aac carries 6.1 as seven channels and 7.1 as eight. The ten rows
     /// still on eac3 are the ones aac refuses outright (<c>Unsupported channel layout</c>) — every
     /// one of them a height layout no consumer decoder produces — and there eac3's fold is the
     /// least-bad answer available, because it is the only one that cannot fail. A user who really
@@ -162,12 +171,14 @@ public static class ChannelLayoutDetector
         // Height layouts aac refuses. eac3 folds them rather than failing, and the boosted centre
         // survives the fold because `pan` runs first.
         ["3.1.2"] = Layout("3.1.2", "FL FR FC LFE TFL TFR", "eac3", 4),
-        ["5.1.2"] = Layout("5.1.2", "FL FR FC LFE BL BR TFL TFR", "eac3", 6),
-        ["5.1.4"] = Layout("5.1.4", "FL FR FC LFE BL BR TFL TFR TBL TBR", "eac3", 6),
+        ["5.1.2"] = Layout("5.1.2", "FL FR FC LFE SL SR TFL TFR", "eac3", 6),
+        ["5.1.2(back)"] = Layout("5.1.2(back)", "FL FR FC LFE BL BR TFL TFR", "eac3", 6),
+        ["5.1.4"] = Layout("5.1.4", "FL FR FC LFE SL SR TFL TFR TBL TBR", "eac3", 6),
         ["7.1.2"] = Layout("7.1.2", "FL FR FC LFE BL BR SL SR TFL TFR", "eac3", 6),
         ["7.1.4"] = Layout("7.1.4", "FL FR FC LFE BL BR SL SR TFL TFR TBL TBR", "eac3", 6),
         ["7.2.3"] = Layout("7.2.3", "FL FR FC LFE BL BR SL SR TFL TFR TBC LFE2", "eac3", 6),
         ["9.1.4"] = Layout("9.1.4", "FL FR FC LFE BL BR FLC FRC SL SR TFL TFR TBL TBR", "eac3", 6),
+        ["9.1.6"] = Layout("9.1.6", "FL FR FC LFE BL BR FLC FRC SL SR TFL TFR TBL TBR TSL TSR", "eac3", 6),
         ["22.2"] = Layout("22.2", "FL FR FC LFE BL BR FLC FRC BC SL SR TC TFL TFC TFR TBL TBC TBR LFE2 TSL TSR BFC BFL BFR", "eac3", 6),
 
         // No front centre, and aac refuses it anyway — so the lift has nowhere to go and the
@@ -229,6 +240,14 @@ public static class ChannelLayoutDetector
     /// place where the default would be a coin toss about the centre itself. Three is absent
     /// because this build's default for it is 2.1, which has no centre at all.
     /// </para>
+    /// <para>
+    /// And only the counts every jellyfin-ffmpeg the plugin runs under agrees about. Re-read off
+    /// 8.1.3, which Jellyfin 12 ships: the same answer for every count here, and a different one for
+    /// sixteen — <c>9.1.6</c>, where 7.1.4 said <c>hexadecagonal</c>. Both put the centre third and
+    /// disagree about almost every channel after it, and the graph names its output after this
+    /// default, so guessing either one relabels a dozen channels under the other build. Sixteen
+    /// unnamed channels go to the enhancer instead, which folds from what the decoder says they are.
+    /// </para>
     /// </remarks>
     private static readonly Dictionary<int, string> DefaultLayouts = new()
     {
@@ -237,8 +256,7 @@ public static class ChannelLayoutDetector
         [7] = "6.1",
         [8] = "7.1",
         [10] = "5.1.4",
-        [12] = "7.1.4",
-        [16] = "hexadecagonal"
+        [12] = "7.1.4"
     };
 
     /// <summary>

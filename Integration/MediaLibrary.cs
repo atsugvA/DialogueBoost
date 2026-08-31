@@ -44,6 +44,14 @@ public interface IMediaLibrary
     /// </summary>
     IReadOnlyList<BaseItem> Within(BaseItem parent, BaseItemKind[] kinds);
 
+    /// <summary>
+    /// Jellyfin's own folder for one item: where it keeps the item's images and downloaded
+    /// subtitles, which it reads external audio from exactly as it does beside the media, and which
+    /// it deletes when the item leaves the library. It need not exist yet — Jellyfin creates
+    /// it the first time it stores something there.
+    /// </summary>
+    string MetadataFolderOf(BaseItem item);
+
     /// <summary>Raised when Jellyfin adds an item, whether by scan or by file watch.</summary>
     event EventHandler<ItemChangeEventArgs> ItemAdded;
 }
@@ -82,6 +90,13 @@ public sealed class JellyfinMediaLibrary : IMediaLibrary
 
     public IReadOnlyList<BaseItem> Within(BaseItem parent, BaseItemKind[] kinds) =>
         _libraryManager.GetItemList(Query(kinds, recursive: true), new List<BaseItem> { parent });
+
+    /// <summary>
+    /// Asked of the item rather than built from the server's metadata path, because the layout
+    /// below that path — <c>library/&lt;first two of the id&gt;/&lt;id&gt;</c> for a library item,
+    /// something else for a channel's — is Jellyfin's to change, and its own readers ask the item.
+    /// </summary>
+    public string MetadataFolderOf(BaseItem item) => item.GetInternalMetadataPath();
 
     /// <summary>
     /// One query shape for both forms. <c>IsVirtualItem = false</c> is not a caller's choice:

@@ -29,6 +29,7 @@ public class ItemProcessor
     private readonly ItemGate _gate;
     private readonly CandidateStreams _candidates;
     private readonly SidecarBookkeeping _bookkeeping;
+    private readonly SidecarPlacement _placement;
     private readonly SidecarWriter _writer;
     private readonly StorageProbe _storage;
     private readonly IMetadataRefresher _refresher;
@@ -40,6 +41,7 @@ public class ItemProcessor
         ItemGate gate,
         CandidateStreams candidates,
         SidecarBookkeeping bookkeeping,
+        SidecarPlacement placement,
         SidecarWriter writer,
         StorageProbe storage,
         IMetadataRefresher refresher,
@@ -50,6 +52,7 @@ public class ItemProcessor
         _gate = gate;
         _candidates = candidates;
         _bookkeeping = bookkeeping;
+        _placement = placement;
         _writer = writer;
         _storage = storage;
         _refresher = refresher;
@@ -139,10 +142,12 @@ public class ItemProcessor
         foreach (var profile in profiles)
         {
             _logger.LogInformation(
-                "Nothing for the {ProfileId} profile to write for '{ItemName:l}': {Reason}.",
+                "Nothing for the {ProfileId} profile to write for '{ItemName:l}': {Reason:l}.",
                 profile.Id, item.Name, reason);
 
-            var record = DraftFor(item, sourcePath, profile, streams, config.ClaimsDefaultTrack(profile))
+            bool claimsDefault = config.ClaimsDefaultTrack(profile);
+            string sidecarPath = _placement.PathFor(item, profile.SidecarNamingMarker, claimsDefault, config.SidecarLocation);
+            var record = DraftFor(item, sourcePath, sidecarPath, profile, streams, claimsDefault)
                 .Build(ProcessedItemRecord.NothingToProcess, skipReason: reason);
 
             results.Add(new ItemProcessingResult(
@@ -156,6 +161,7 @@ public class ItemProcessor
     private static RecordDraft DraftFor(
         BaseItem item,
         string sourcePath,
+        string sidecarPath,
         BaseProfileConfig profile,
         List<AudioStreamInfo> streams,
         bool claimsDefault) =>
@@ -164,7 +170,7 @@ public class ItemProcessor
             profile.Id,
             sourcePath,
             new FileInfo(sourcePath),
-            SidecarNamer.GetSidecarPath(sourcePath, profile.SidecarNamingMarker, claimsDefault),
+            sidecarPath,
             ProcessingStateRepository.ComputeParamsHash(profile, streams, claimsDefault),
             ProcessingStateRepository.ComputeProfileParamsHash(profile, claimsDefault));
 
@@ -180,16 +186,25 @@ public class ItemProcessor
     {
         string itemId = item.Id.ToString("N");
         bool claimsDefault = config.ClaimsDefaultTrack(profile);
-        string sidecarPath = SidecarNamer.GetSidecarPath(sourcePath, profile.SidecarNamingMarker, claimsDefault);
-        var draft = DraftFor(item, sourcePath, profile, candidateStreams, claimsDefault);
+        string sidecarPath = _placement.PathFor(item, profile.SidecarNamingMarker, claimsDefault, config.SidecarLocation);
+        var draft = DraftFor(item, sourcePath, sidecarPath, profile, candidateStreams, claimsDefault);
 
         var existing = await _stateRepository.GetRecordAsync(itemId, profile.Id).ConfigureAwait(false);
         if (existing is not null)
         {
-            await _bookkeeping.ReconcileAsync(existing, itemId, sourcePath, sidecarPath).ConfigureAwait(false);
+            var reconciled = await _bookkeeping
+                .ReconcileAsync(existing, itemId, sourcePath, sidecarPath, config.DryRun)
+                .ConfigureAwait(false);
 
-            if (IsUpToDate(existing, draft.ParamsHash, sidecarPath))
+            if (IsUpToDate(existing, draft.ParamsHash, reconciled.TrackPath))
             {
+                if (reconciled.Moved)
+                {
+                    // Not "already done": Jellyfin still lists the track at the path it just left,
+                    // and asking it to play from there fails until it reads the item again.
+                    return new ItemProcessingResult(ProcessingOutcome.Moved, existing);
+                }
+
                 _logger.LogDebug("'{ItemName:l}' already has a current {ProfileId} track.", item.Name, profile.Id);
                 return new ItemProcessingResult(ProcessingOutcome.AlreadyDone, existing);
             }
@@ -217,6 +232,16 @@ public class ItemProcessor
                 "[DryRun] Would write '{SidecarPath:l}' for '{ItemName:l}'.", sidecarPath, item.Name);
             return new ItemProcessingResult(
                 ProcessingOutcome.Skipped, draft.Build("Skipped", skipReason: "DryRun active"), "dry run");
+        }
+
+        // Jellyfin makes an item's own folder the first time it stores something there, so a track
+        // can be the first thing in it. Made here rather than by the writer because the probe below
+        // has to find it: a folder that is not there reads as a volume that is not mounted. Beside
+        // the media nothing is made — that folder holds the source, and its absence means exactly
+        // that.
+        if (config.SidecarLocation == SidecarLocation.MetadataFolder)
+        {
+            EnsureFolder(Path.GetDirectoryName(sidecarPath));
         }
 
         // Nothing is encoded into a directory that will refuse the file at the end. The probe is of
@@ -252,6 +277,7 @@ public class ItemProcessor
                     exemptFromCleanup: gate.IsWatched || overrideWatched);
 
                 await Save(record).ConfigureAwait(false);
+                _bookkeeping.RemoveCopies(_placement.CopiesElsewhere(item, published));
 
                 if (profile.RefreshMode == RefreshMode.PerItemImmediate)
                 {
@@ -280,14 +306,35 @@ public class ItemProcessor
     }
 
     /// <summary>
+    /// Makes an item's metadata folder. A failure is left for the storage probe to explain, which
+    /// it does in more words than an exception from here would.
+    /// </summary>
+    private void EnsureFolder(string? folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(folder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "Could not create {Folder}; the storage check says why.", folder);
+        }
+    }
+
+    /// <summary>
     /// Whether the recorded work still stands: same parameters, same tracks, and the file is still
     /// there. The hash covers the profile's settings and a signature of the source's audio tracks,
     /// so changing either brings the item back round.
     /// </summary>
-    private static bool IsUpToDate(ProcessedItemRecord existing, string paramsHash, string sidecarPath) =>
+    private static bool IsUpToDate(ProcessedItemRecord existing, string paramsHash, string trackPath) =>
         existing.Status == "Success"
         && existing.ParamsHash.Equals(paramsHash, StringComparison.OrdinalIgnoreCase)
-        && File.Exists(sidecarPath);
+        && File.Exists(trackPath);
 
     private async Task<ProcessedItemRecord> Save(ProcessedItemRecord record)
     {

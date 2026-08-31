@@ -33,9 +33,11 @@ readonly DIST="$REPO_ROOT/dist"
 readonly STAGE="$DIST/stage"
 readonly TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.0000000Z)"
 
-# The version lives in three files and Jellyfin reads all three. build.yaml names the install
-# directory, meta.json is what the dashboard reports, and the manifest is what the catalogue
-# compares against — a disagreement shows up as an update that installs and never applies.
+# The version lives in four places and Jellyfin reads all four. build.yaml names the install
+# directory, meta.json is what the loader logs, the manifest is what the catalogue compares
+# against — a disagreement shows up as an update that installs and never applies — and the
+# assembly's own version is what the dashboard's plugin list reports, at least on Jellyfin 12.2:
+# a 1.1.0.0 install whose DLL said 1.0.0.0 was listed as 1.0.0.0.
 say "Stamping version $VERSION"
 sed -i "s/^version: .*/version: \"$VERSION\"/" "$REPO_ROOT/build.yaml"
 python3 - "$REPO_ROOT/meta.json" "$VERSION" "$TIMESTAMP" <<'PY'
@@ -51,7 +53,7 @@ with open(path, "w") as f:
 PY
 
 say "Building Release"
-dotnet build "$REPO_ROOT/Jellyfin.Plugin.DialogueBoost.csproj" -c Release --nologo
+dotnet build "$REPO_ROOT/Jellyfin.Plugin.DialogueBoost.csproj" -c Release --nologo -p:Version="$VERSION"
 
 # Files sit at the root of the zip: Jellyfin extracts straight into plugins/<name>_<version>/,
 # so a top-level folder in the archive becomes a nested directory the loader never looks in.

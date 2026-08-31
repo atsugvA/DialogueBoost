@@ -183,6 +183,48 @@ public class ProcessingStateRepositoryTests : IDisposable
         Assert.True(fetched.ExemptFromCleanup);
     }
 
+    /// <summary>
+    /// A moved track keeps everything the record vouches for — the settings, the source, the
+    /// protection from cleanup — and only its path changes, and only for the one profile.
+    /// </summary>
+    [Fact]
+    public async Task UpdateSidecarPathAsync_MovesOneRecordsPathAndNothingElse()
+    {
+        ProcessedItemRecord Written(string profileId) => new()
+        {
+            ItemId = "itemMoved",
+            ProfileId = profileId,
+            SourcePath = "/media/film.mkv",
+            SourceMTimeUtc = 42,
+            SourceSizeBytes = 300,
+            ParamsHash = "h-" + profileId,
+            ProfileParamsHash = "p-" + profileId,
+            SidecarPath = $"/media/film.{profileId}.mka",
+            ProcessedLanguages = new List<string> { "eng" },
+            Status = "Success",
+            ProcessedAtUtc = 7,
+            ExemptFromCleanup = true
+        };
+
+        await _repo.SaveRecordAsync(Written("p1"));
+        await _repo.SaveRecordAsync(Written("p2"));
+
+        await _repo.UpdateSidecarPathAsync("itemMoved", "p1", "/metadata/ab/film.p1.mka");
+
+        var moved = await _repo.GetRecordAsync("itemMoved", "p1");
+        Assert.NotNull(moved);
+        Assert.Equal("/metadata/ab/film.p1.mka", moved.SidecarPath);
+        Assert.Equal("h-p1", moved.ParamsHash);
+        Assert.Equal("p-p1", moved.ProfileParamsHash);
+        Assert.Equal("/media/film.mkv", moved.SourcePath);
+        Assert.Equal("Success", moved.Status);
+        Assert.True(moved.ExemptFromCleanup);
+        Assert.Equal(7, moved.ProcessedAtUtc);
+
+        var untouched = await _repo.GetRecordAsync("itemMoved", "p2");
+        Assert.Equal("/media/film.p2.mka", untouched!.SidecarPath);
+    }
+
     [Fact]
     public async Task SetExemptAsync_UpdatesExemptFlagSuccessfully()
     {

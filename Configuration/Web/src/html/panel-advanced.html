@@ -107,7 +107,7 @@
             <div>
                 <label class="db-label" for="txtMaxConcurrentJobs">Jobs at once</label>
                 <input is="emby-input" type="number" id="txtMaxConcurrentJobs" min="1" max="32" value="1" required />
-                <div class="fieldDescription">Up to your CPU thread count. Audio filtering is single-threaded per stream, so this is what makes a batch fast.</div>
+                <div class="fieldDescription">Your storage sets this, not your CPU: reaching one audio track means reading the whole file, so a run is bound by disk throughput — the encode itself is a fraction of a core. A few jobs will saturate one spinning disk; past that, more buy nothing.</div>
             </div>
             <div class="db-grid-wide db-checks">
                 <label><input is="emby-checkbox" type="checkbox" id="chkEnabled" /><span>Plugin enabled</span></label>
@@ -119,8 +119,20 @@
 
     <div class="db-group">
         <div class="db-group-head"><b>Storage</b><span>Checked per folder before every encode, because exposure is per folder.</span></div>
+        <div class="db-grid">
+            <div class="db-grid-wide">
+                <label class="db-label" for="selSidecarLocation">Where tracks are written</label>
+                <select is="emby-select" id="selSidecarLocation">
+                    <option value="MetadataFolder">in Jellyfin's own folder for each item</option>
+                    <option value="BesideMedia">beside each source file</option>
+                </select>
+                <div class="fieldDescription" id="sidecarLocationNote"></div>
+                <div class="fieldDescription">Changing this moves the tracks already written, on the next run. Nothing is encoded again.</div>
+            </div>
+        </div>
         <div class="db-kv"><span class="db-kv-k">Runs as</span><span class="db-kv-v db-mono" id="advStorageUser">—</span></div>
         <div class="db-kv"><span class="db-kv-k">Folders checked</span><span class="db-kv-v" id="advStorageCount">—</span></div>
+        <div class="db-kv"><span class="db-kv-k">Free there</span><span class="db-kv-v" id="advStorageFree">—</span></div>
         <div id="advStorageProblems"></div>
     </div>
 

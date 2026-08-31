@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.DialogueBoost.Api.Models;
+using Jellyfin.Plugin.DialogueBoost.Configuration;
 using Jellyfin.Plugin.DialogueBoost.Output;
 using Jellyfin.Plugin.DialogueBoost.Selection;
 using Microsoft.AspNetCore.Authorization;
@@ -34,25 +35,34 @@ public class StorageController : ControllerBase
     private readonly SelectionStore _store;
     private readonly ScopeResolver _resolver;
     private readonly StorageProbe _probe;
+    private readonly SidecarPlacement _placement;
 
-    public StorageController(SelectionStore store, ScopeResolver resolver, StorageProbe probe)
+    public StorageController(SelectionStore store, ScopeResolver resolver, StorageProbe probe, SidecarPlacement placement)
     {
         _store = store;
         _resolver = resolver;
         _probe = probe;
+        _placement = placement;
     }
 
     /// <summary>
-    /// Probes the folders behind the current selection.
+    /// Probes the folders the current selection's tracks would be written into.
     /// </summary>
     [HttpGet("/Plugins/DialogueBoost/Storage")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<StorageReportDto>> GetStorage(CancellationToken cancellationToken)
     {
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var location = config.SidecarLocation;
         var selection = await _store.GetAsync(cancellationToken).ConfigureAwait(false);
 
+        // The folders a run writes into. Beside the media that is the source's own folder, and one
+        // that is missing means a volume that is not mounted. An item's metadata folder is often
+        // missing for a better reason — Jellyfin makes it the first time it stores something, and a
+        // run makes it for a track — so what decides there is the nearest folder above it that is.
         var folders = _resolver.ResolveItems(selection)
-            .Select(item => Path.GetDirectoryName(item.Path))
+            .Select(item => _placement.FolderFor(item, location))
+            .Select(folder => location == SidecarLocation.MetadataFolder ? StorageProbe.NearestExisting(folder) : folder)
             .Where(directory => !string.IsNullOrWhiteSpace(directory))
             .Distinct(System.StringComparer.Ordinal)
             .ToList();
@@ -65,6 +75,9 @@ public class StorageController : ControllerBase
 
         return Ok(new StorageReportDto
         {
+            Location = location.ToString(),
+            FreeBytes = results.Select(r => r.FreeBytes).Where(free => free is not null).Min(),
+            ReserveBytes = location == SidecarLocation.MetadataFolder ? Processing.ItemGate.JellyfinDiskReserveBytes : 0,
             ServiceUser = StorageProbe.ServiceUser,
             FoldersChecked = results.Count,
             FoldersWritable = results.Count(r => r.IsWritable),

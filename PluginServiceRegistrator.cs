@@ -35,6 +35,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         services.AddSingleton<SourceStreamAnalyzer>();
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<StorageProbe>();
+        services.AddSingleton<SidecarPlacement>();
         services.AddSingleton<SidecarWriter>();
         services.AddSingleton<SidecarSweep>();
         services.AddSingleton<ProcessingStateRepository>();

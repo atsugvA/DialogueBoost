@@ -38,19 +38,31 @@ public sealed record GateDecision(bool Proceed, string Reason, bool IsWatched)
 /// </remarks>
 public sealed class ItemGate
 {
+    /// <summary>
+    /// What a run leaves free on the disk holding Jellyfin's metadata folder. Jellyfin refuses to
+    /// start with less than 2 GiB free on its own paths — it says so at every start, "successfully
+    /// checked with … free which is over the minimum of 2GiB" — and it shares that disk with its
+    /// database, its logs and its transcodes. A library's worth of tracks must not be what takes it
+    /// there, so the plugin stops well above it.
+    /// </summary>
+    internal const long JellyfinDiskReserveBytes = 5L * 1024 * 1024 * 1024;
+
     private readonly WatchedItems _watched;
     private readonly StorageProbe _storage;
+    private readonly SidecarPlacement _placement;
     private readonly IPlaybackSessions _sessions;
     private readonly ILogger<ItemGate> _logger;
 
     public ItemGate(
         WatchedItems watched,
         StorageProbe storage,
+        SidecarPlacement placement,
         IPlaybackSessions sessions,
         ILogger<ItemGate> logger)
     {
         _watched = watched;
         _storage = storage;
+        _placement = placement;
         _sessions = sessions;
         _logger = logger;
     }
@@ -82,7 +94,7 @@ public sealed class ItemGate
 
         await WaitForPlaybackToStopAsync(config, cancellationToken).ConfigureAwait(false);
 
-        var room = CheckRoom(item);
+        var room = CheckRoom(item, config.SidecarLocation);
         return room.Proceed ? GateDecision.Go(isWatched) : room with { IsWatched = isWatched };
     }
 
@@ -143,25 +155,49 @@ public sealed class ItemGate
     }
 
     /// <summary>
-    /// Whether the volume has room. A sidecar is well under a tenth of the source, so a tenth is a
-    /// margin rather than an estimate; the floor stops the check waving through a nearly full disk
-    /// because the source happened to be small.
+    /// Whether the disk the track goes to has room. A sidecar is well under a tenth of the source,
+    /// so a tenth is a margin rather than an estimate; the floor stops the check waving through a
+    /// nearly full disk because the source happened to be small. On the disk holding Jellyfin's
+    /// metadata folder, <see cref="JellyfinDiskReserveBytes"/> comes on top.
     /// </summary>
-    private GateDecision CheckRoom(BaseItem item)
+    /// <remarks>
+    /// Measured on the folder being written, through <see cref="StorageProbe.FreeBytesAt"/> — which
+    /// is not the source's folder when tracks go to the metadata folder. It used to ask
+    /// <c>DriveInfo</c> about the folder's <em>root</em>, which on Linux is <c>/</c> for every path,
+    /// so a media volume at <c>/mnt/…</c> was judged by the system disk's free space.
+    /// </remarks>
+    private GateDecision CheckRoom(BaseItem item, SidecarLocation location)
     {
         try
         {
-            string? directory = Path.GetDirectoryName(item.Path);
+            string? directory = _placement.FolderFor(item, location);
             if (string.IsNullOrWhiteSpace(directory))
             {
                 return GateDecision.Go(false);
             }
 
-            long available = new DriveInfo(new DirectoryInfo(directory).Root.FullName).AvailableFreeSpace;
-            long required = Math.Max(new FileInfo(item.Path).Length / 10, 100L * 1024 * 1024);
+            if (StorageProbe.FreeBytesAt(directory) is not long available)
+            {
+                _logger.LogWarning("Could not read free space for '{ItemName:l}'. Proceeding anyway.", item.Name);
+                return GateDecision.Go(false);
+            }
+
+            bool jellyfinsDisk = location == SidecarLocation.MetadataFolder;
+            long required = Math.Max(new FileInfo(item.Path).Length / 10, 100L * 1024 * 1024)
+                + (jellyfinsDisk ? JellyfinDiskReserveBytes : 0);
             if (available >= required)
             {
                 return GateDecision.Go(false);
+            }
+
+            if (jellyfinsDisk)
+            {
+                _logger.LogWarning(
+                    "Not enough room for '{ItemName:l}' in Jellyfin's metadata folder: {AvailableMB} MB free, {RequiredMB} MB wanted. " +
+                    "Jellyfin will not start with less than 2 GiB free on its own disk, so the plugin keeps 5 GiB of it clear. " +
+                    "Free some space there, or write tracks beside the media instead.",
+                    item.Name, available / (1024 * 1024), required / (1024 * 1024));
+                return GateDecision.Stop("not enough free space in Jellyfin's metadata folder");
             }
 
             _logger.LogWarning(

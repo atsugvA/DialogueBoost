@@ -19,6 +19,13 @@ public enum ProcessingOutcome
     /// <summary>Found already written, at the current settings. Nothing was encoded.</summary>
     AlreadyDone,
 
+    /// <summary>
+    /// Found already written at the current settings, somewhere it no longer belongs, and moved
+    /// there. Nothing was encoded — but Jellyfin still lists the track at the old path until it
+    /// reads the item again, so this needs the refresh a written track gets.
+    /// </summary>
+    Moved,
+
     /// <summary>Deliberately not done — dry run, watched, nothing qualified, plugin disabled.</summary>
     Skipped,
 
@@ -39,4 +46,11 @@ public enum ProcessingOutcome
 public sealed record ItemProcessingResult(
     ProcessingOutcome Outcome,
     ProcessedItemRecord? Record,
-    string? Reason = null);
+    string? Reason = null)
+{
+    /// <summary>
+    /// Whether this run changed which files the item has — wrote one, or moved one — so Jellyfin
+    /// has to read the item again before the track can be played from where it now is.
+    /// </summary>
+    public bool ChangedFiles => Outcome is ProcessingOutcome.Written or ProcessingOutcome.Moved;
+}

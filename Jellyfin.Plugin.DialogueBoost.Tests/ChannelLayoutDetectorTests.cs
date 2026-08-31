@@ -15,6 +15,10 @@ public class ChannelLayoutDetectorTests
     [InlineData("6.1(back)", 7, DialogueBoostBranch.CenterGainInPlace)]
     [InlineData("7.1(wide-side)", 8, DialogueBoostBranch.CenterGainInPlace)]
     [InlineData("5.1.4", 10, DialogueBoostBranch.CenterGainInPlace)]
+    // Names only jellyfin-ffmpeg 8 has, and so only Jellyfin 12 reports. Without a row a centre
+    // was folded to stereo with everything else.
+    [InlineData("5.1.2(back)", 8, DialogueBoostBranch.CenterGainInPlace)]
+    [InlineData("9.1.6", 16, DialogueBoostBranch.CenterGainInPlace)]
     // A front centre is a front centre below 5.1 too: these used to be downmixed to stereo,
     // which threw away channels a codec was willing to carry.
     [InlineData("3.0", 3, DialogueBoostBranch.CenterGainInPlace)]
@@ -143,8 +147,10 @@ public class ChannelLayoutDetectorTests
     [InlineData("7.1(wide)", 8, 2)]
     [InlineData("7.1(wide-side)", 8, 2)]
     [InlineData("5.1.2", 8, 2)]
+    [InlineData("5.1.2(back)", 8, 2)]
     [InlineData("5.1.4", 10, 2)]
     [InlineData("7.1.2", 10, 2)]
+    [InlineData("9.1.6", 16, 2)]
     [InlineData("7.1.4", 12, 2)]
     public void BuildDialogueBoostBranchSpec_CentreBranch_CarriesEveryChannelOnceAndScalesTheCentre(
         string layout, int channels, int centreIndex)
@@ -186,8 +192,10 @@ public class ChannelLayoutDetectorTests
     [InlineData("octagonal", 8, "aac", 8)]
     [InlineData("3.1.2", 6, "eac3", 4)]
     [InlineData("5.1.2", 8, "eac3", 6)]
+    [InlineData("5.1.2(back)", 8, "eac3", 6)]
     [InlineData("5.1.4", 10, "eac3", 6)]
     [InlineData("7.1.4", 12, "eac3", 6)]
+    [InlineData("9.1.6", 16, "eac3", 6)]
     [InlineData("22.2", 24, "eac3", 6)]
     public void BuildDialogueBoostBranchSpec_CentreBranch_ReportsTheChannelsTheEncoderWrites(
         string layout, int channels, string codec, int expected)
@@ -240,6 +248,21 @@ public class ChannelLayoutDetectorTests
         Assert.StartsWith(expectedGraphStart, spec.FilterGraph, StringComparison.Ordinal);
         Assert.Equal(codec, spec.Codec);
         Assert.Equal(outputChannels, spec.OutputChannels);
+    }
+
+    /// <summary>
+    /// Sixteen unnamed channels are <c>hexadecagonal</c> to jellyfin-ffmpeg 7.1.4 and <c>9.1.6</c> to
+    /// 8.1.3. The graph names its output after the default it assumes, so either guess relabels a
+    /// dozen channels under the other build — and a count the builds disagree about is one the
+    /// plugin does not guess at. The enhancer folds from whatever the decoder says instead.
+    /// </summary>
+    [Fact]
+    public void BuildDialogueBoostBranchSpec_SixteenUnnamedChannels_AreNotGuessedAt()
+    {
+        var spec = ChannelLayoutDetector.BuildDialogueBoostBranchSpec(
+            new AudioStreamInfo { ChannelLayout = string.Empty, Channels = 16 }, 4.0);
+
+        Assert.Equal(DialogueBoostBranch.StereoDialogueEnhance, spec.Branch);
     }
 
     /// <summary>

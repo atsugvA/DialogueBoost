@@ -140,6 +140,7 @@ function renderStorageCell(report) {
     var checked = (report && report.FoldersChecked) || 0;
     var problems = (report && report.Problems) || [];
     var writable = checked - problems.length;
+    var tight = storageIsTight(report);
     var cell = bandEl('bandStorageCell');
     var band = bandEl('dbBand');
 
@@ -152,11 +153,14 @@ function renderStorageCell(report) {
         checked
             ? (problems.length
                 ? count(problems.length, 'folder') + ' of ' + checked + ' cannot be written'
-                : (checked === 1 ? 'folder' : 'folders') + ' writable as ' +
-                  (report.ServiceUser || 'the service account'))
+                : tight
+                    ? 'only ' + size(report.FreeBytes) + ' free on Jellyfin\'s own disk — see Advanced'
+                    : (checked === 1 ? 'folder' : 'folders') + ' writable as ' +
+                      (report.ServiceUser || 'the service account') +
+                      (report.Location === 'BesideMedia' ? ', beside the media' : ', in Jellyfin\'s metadata folder'))
             : 'nothing chosen to probe');
 
-    if (cell) { cell.classList.toggle('db-cell-warn', problems.length > 0); }
+    if (cell) { cell.classList.toggle('db-cell-warn', problems.length > 0 || tight); }
     if (band) { band.setAttribute('data-storage', problems.length ? 'bad' : 'ok'); }
     if (problems.length) { renderStorageAlert(report, problems); }
 }

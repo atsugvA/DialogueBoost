@@ -1,23 +1,63 @@
 # Dialogue Boost
 
 A Jellyfin plugin that writes a **dialogue-enhanced copy of a film or episode's audio as an extra
-selectable track**, beside the original file. Your media is never opened for writing, never
-re-muxed, never re-encoded.
+selectable track**. Your media is never opened for writing, never re-muxed, never re-encoded — and
+by default nothing is added to your media folders either.
 
 ![The plugin's overview band](docs/images/01-overview.png)
 
+> ### :robot: AI assistance disclaimer
+>
+> This plugin was written with heavy use of AI assistance: nearly all of its code was written by
+> an AI assistant (Anthropic's Claude), under its maintainer's direction. That is worth saying
+> plainly, because it changes what you should check rather than whether it works.
+>
+> The code **compiles cleanly, with no warnings, and passes an automated unit-test suite**
+> covering the channel-layout and encoder decisions, the ffmpeg command built for each, the settings
+> hash that decides what is redone, where tracks are written and how they move, the cleanup and the
+> one-button removal, the configuration's round trip through Jellyfin's own serializer, and the
+> shipped defaults. **The runtime paths have been tested against a live Jellyfin server** rather than
+> argued from documentation: per-channel levels are read back off encoded output, source files are
+> hashed before and after every run, and the configuration page is loaded through Jellyfin's own
+> router in a real browser. Where a comment in this code says something was measured, it was
+> measured — several of them exist because the obvious answer turned out to be wrong.
+>
+> It has run on Linux, on Jellyfin 10.11.11 and 12.2; in Jellyfin Web on both, and in the official
+> Android TV client on 10.11. Other clients should work through the same external-audio mechanism,
+> and other operating systems through the same .NET — but neither has been tested, and
+> [Platforms](#platforms) says what that does and does not buy you.
+
 ## What it writes
 
-One small `.mka` file per item, next to the source:
+One small `.mka` file per item, in the folder Jellyfin keeps for that item itself:
 
 ```
 Movies/The Quiet Harbour (2019)/
-  The Quiet Harbour (2019).mkv                            ← never touched
+  The Quiet Harbour (2019).mkv                            ← never touched, nothing added beside it
+
+/var/lib/jellyfin/metadata/library/3f/3f9c…/              ← Jellyfin's own folder for the item
   The Quiet Harbour (2019).Dialogue Boost.default.mka     ← what this writes
 ```
 
 Jellyfin shows it as another audio track on the same item. Pick it from the audio menu — or let the
 plugin claim it as the track playback starts on, which is what `.default` in the filename does.
+
+That folder is where Jellyfin keeps an item's artwork and downloaded subtitles, and it reads audio
+tracks from it exactly as it does from beside the video. Nothing else on the machine looks there, so
+**Radarr, Sonarr and torrent clients never see these files**, and Jellyfin deletes the folder, track
+included, when the item leaves your library. It is `/var/lib/jellyfin/metadata` on most Linux
+installs and `/config/metadata` in the official Docker image — the disk Jellyfin keeps its own data
+on, so the plugin keeps 5 GB of that disk free: Jellyfin will not start with less than 2.
+
+You can have the tracks beside the media instead — **Advanced → Storage → Where tracks are
+written** — where other players can use them too. Tools that adopt a file named after a video as
+one of its extras, Radarr's and Sonarr's among them, may then rename, move or delete the tracks along
+with the video. Switching either way moves the tracks already written on the next run; nothing is
+encoded again.
+
+The metadata folder was measured on Jellyfin 12.2. Jellyfin 10.11 has the same folder and the same
+call behind it, but nobody has watched it there yet — if a track does not show up on 10.11, switch
+to *beside each source file* and [say so](https://github.com/atsugvA/DialogueBoost/issues).
 
 Five profiles decide what the extra track contains:
 
@@ -31,10 +71,11 @@ Five profiles decide what the extra track contains:
 
 ## Requirements
 
-- **Jellyfin 10.11** (built and tested against 10.11.11, .NET 9)
+- **Jellyfin 10.11 or 12** (built against 10.11.11 on .NET 9; run on 10.11.11 and 12.2)
 - **Linux** — see [Platforms](#platforms) below; Windows and macOS are untested
 - No separate ffmpeg install — the plugin uses the encoder Jellyfin already has configured
-- Disk space for the sidecars, which are a few hundred MB per film at most, not a copy of the video
+- Disk space for the sidecars, which are a few hundred MB per film at most, not a copy of the video —
+  on the disk Jellyfin keeps its own data on, unless you choose to write them beside the media
 
 ## Platforms
 
@@ -77,9 +118,9 @@ Download the `.zip` from [Releases](https://github.com/atsugvA/DialogueBoost/rel
 into a folder named `Dialogue Boost_<version>` under your Jellyfin plugin directory, and restart:
 
 ```bash
-sudo mkdir -p "/var/lib/jellyfin/plugins/Dialogue Boost_1.0.0.0"
-sudo unzip dialogue-boost_1.0.0.0.zip -d "/var/lib/jellyfin/plugins/Dialogue Boost_1.0.0.0"
-sudo chown -R jellyfin:jellyfin "/var/lib/jellyfin/plugins/Dialogue Boost_1.0.0.0"
+sudo mkdir -p "/var/lib/jellyfin/plugins/Dialogue Boost_1.1.0.0"
+sudo unzip dialogue-boost_1.1.0.0.zip -d "/var/lib/jellyfin/plugins/Dialogue Boost_1.1.0.0"
+sudo chown -R jellyfin:jellyfin "/var/lib/jellyfin/plugins/Dialogue Boost_1.1.0.0"
 sudo systemctl restart jellyfin
 ```
 
@@ -140,9 +181,9 @@ Everything the plugin wrote can be removed in one button — **Advanced → Remo
 stand down**. It disables the plugin and clears both scheduled runs *before* deleting, because a
 library emptied in the afternoon with the daily run still scheduled is full again by morning.
 
-It finds tracks two ways — by looking beside every item in every library, and by what its own
-records name — and deletes only what it can account for. A `.mka` file it did not write is left
-alone.
+It finds tracks two ways — by looking in both places a track can be, beside every item in every
+library and in Jellyfin's own folder for it, and by what its own records name — and deletes only what
+it can account for. A `.mka` file it did not write is left alone.
 
 ![The records table](docs/images/05-records.png)
 
@@ -173,23 +214,6 @@ is not a test project. Name the test project.
 `scripts/` also holds the two harnesses that check the audio itself against real ffmpeg, and a probe
 that loads the config page in a real browser through Jellyfin's own router. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## A note on how this was built
-
-This plugin was written with heavy use of AI assistance. That is worth saying plainly, because it
-changes what you should check rather than whether it works.
-
-What that meant in practice: behaviour was verified against a running Jellyfin and real ffmpeg
-rather than argued from documentation. Per-channel levels are read back off encoded output; source
-files are hashed before and after every run; the configuration page is loaded through Jellyfin's own
-router in a real browser rather than rendered standalone. Where a comment in this code says
-something was measured, it was measured — several of them exist because the obvious answer turned
-out to be wrong.
-
-It has been exercised on Linux, on Jellyfin Web and the official Android TV client. Other clients
-should work through the same external-audio mechanism, and other operating systems through the same
-.NET — but neither has been tested, and [Platforms](#platforms) says what that does and does not
-buy you.
 
 ## License
 

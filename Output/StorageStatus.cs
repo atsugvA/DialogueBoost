@@ -70,7 +70,7 @@ public sealed record StorageStatus(
 
         _ =>
             $"'{Directory}' denies writes to '{ServiceUser}'{ModePhrase}. The filesystem is writable, so this is the directory's own permissions — " +
-            "on an ntfs3 volume each folder carries its own Linux mode and no mount option overrides it (docs/STORAGE-PERMISSIONS.md)."
+            "on an ntfs3 volume each folder carries its own Linux mode and no mount option overrides it."
     };
 
     private string ModePhrase => Mode is null ? string.Empty : $", and its mode is {Mode}";

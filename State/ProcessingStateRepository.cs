@@ -308,6 +308,27 @@ public class ProcessingStateRepository
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Points one record at the file where its track now is, and changes nothing else about it.
+    /// </summary>
+    /// <remarks>
+    /// For a track that was moved rather than written: the settings and the source it was encoded
+    /// from still stand, only the path is new. Left naming the old one, everything that reads a
+    /// record's path — the band's count first of all — takes a moved track for a missing one.
+    /// </remarks>
+    public async Task UpdateSidecarPathAsync(string itemId, string profileId, string newSidecarPath)
+    {
+        using var connection = await _database.OpenAsync().ConfigureAwait(false);
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE processed_items SET sidecar_path = $newSidecarPath WHERE item_id = $itemId AND profile_id = $profileId;";
+        command.Parameters.AddWithValue("$newSidecarPath", newSidecarPath);
+        command.Parameters.AddWithValue("$itemId", itemId);
+        command.Parameters.AddWithValue("$profileId", profileId);
+
+        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
     public async Task<bool> SetExemptAsync(string itemId, string profileId, bool exempt)
     {
         using var connection = await _database.OpenAsync().ConfigureAwait(false);

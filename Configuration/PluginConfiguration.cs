@@ -104,6 +104,17 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public bool DryRun { get; set; } = false;
 
+    /// <summary>
+    /// Gets or sets where tracks are written. Default is
+    /// <see cref="Configuration.SidecarLocation.MetadataFolder"/>, Jellyfin's own folder for each
+    /// item, which nothing else on the machine looks into: a track beside the media is adopted by
+    /// library managers such as Radarr and Sonarr as one of the video's extras, and renamed, moved
+    /// and deleted with it. A configuration saved before this setting existed has no element for
+    /// it and so takes the default, and its next run moves the tracks it already has rather than
+    /// encoding them again.
+    /// </summary>
+    public SidecarLocation SidecarLocation { get; set; } = SidecarLocation.MetadataFolder;
+
     public TrackSelectionRulesConfig TrackSelectionRules { get; set; } = new();
 
     public DialogueBoostProfile DialogueBoostProfile { get; set; } = new();

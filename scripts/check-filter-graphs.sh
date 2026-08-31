@@ -33,17 +33,27 @@ readonly MAKEUP=1.0
 readonly TOLERANCE=1.5
 
 
-pass=0; fail=0
+pass=0; fail=0; skipped=0
 printf '%-16s %-5s %-6s %-8s %s\n' LAYOUT CODEC OUT GRAPH LEVELS
 while IFS='|' read -r key name channels codec outch; do
     [ -n "${1:-}" ] && { printf '%s\n' "$@" | grep -qxF "$key" || continue; }
 
-    # The names the table claims are the ones ffmpeg decomposes the layout into.
+    # What the plugin takes from a row is how many channels it holds and where the centre sits —
+    # the graph is built by position, never by name. Those two have to be what this ffmpeg makes of
+    # the name; the other names are allowed to differ, because the builds do: jellyfin-ffmpeg 8
+    # moved the surrounds of 5.1.2 and 5.1.4 from BL BR to SL SR. A layout this build has no name
+    # for is one no stream can arrive under while it is the decoder, so it is skipped, not failed.
     want=$("$FF" -hide_banner -layouts 2>/dev/null | awk -v l="$name" '$1==l{print $2}' | tr '+' ' ')
-    if [ "$want" != "$channels" ]; then
+    if [ -z "$want" ]; then
+        printf '%-16s %-5s %-6s %-8s n/a   this ffmpeg has no layout of that name\n' "$key" "$codec" "$outch" "channels"
+        skipped=$((skipped + 1)); continue
+    fi
+    centre_of() { local i=0 c; for c in $1; do [ "$c" = FC ] && { echo "$i"; return; }; i=$((i + 1)); done; echo -1; }
+    if [ "$(wc -w <<< "$want")" != "$(wc -w <<< "$channels")" ] || [ "$(centre_of "$want")" != "$(centre_of "$channels")" ]; then
         printf '%-16s %-5s %-6s %-8s FAIL  table says "%s", ffmpeg says "%s"\n' \
             "$key" "$codec" "$outch" "channels" "$channels" "$want"; fail=$((fail + 1)); continue
     fi
+    renamed=""; [ "$want" != "$channels" ] && renamed="; this ffmpeg spells it \"$want\""
 
     tone_bed "$name" "$WORK/in.wav" || { printf '%-16s no bed\n' "$key"; fail=$((fail + 1)); continue; }
     read -ra ch <<< "$channels"; n=${#ch[@]}
@@ -87,6 +97,7 @@ while IFS='|' read -r key name channels codec outch; do
     fi
 
     [ "$centre" -lt 0 ] && note="${note:+$note; }no centre, carrier only"
+    note="${note}${renamed}"
 
     if [ "$ok" = 1 ]; then
         pass=$((pass + 1)); printf '%-16s %-5s %-6s %-8s ok    %s\n' "$key" "$codec" "$got" "pan" "$note"
@@ -111,5 +122,5 @@ while IFS='|' read -r count want; do
 done < <(sed -nE 's/^ *\[([0-9]+)\] = "([^"]+)",?$/\1|\2/p' "$SRC")
 
 echo
-echo "$pass passed, $fail failed"
+echo "$pass passed, $fail failed, $skipped not known to this ffmpeg ($("$FF" -hide_banner -version | head -1 | cut -d' ' -f3))"
 [ "$fail" -eq 0 ]

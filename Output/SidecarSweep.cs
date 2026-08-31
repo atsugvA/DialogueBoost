@@ -26,11 +26,14 @@ namespace Jellyfin.Plugin.DialogueBoost.Output;
 /// So the sweep asks twice, and takes the union.
 /// </para>
 /// <para>
-/// <b>Beside every item in every library.</b> A sidecar's name is a pure function of the source
-/// path and the profile's marker (<see cref="SidecarNamer"/>), so for every video item the library
-/// holds there are exactly two names per profile — claimed and unclaimed. Read by listing each
-/// directory once rather than testing each name: a release folder holds a whole season, so this is
-/// one <c>readdir</c> where it would otherwise be ten <c>stat</c>s an episode.
+/// <b>Wherever every item in every library could have one.</b> A sidecar's name is a pure function
+/// of the source path and the profile's marker (<see cref="SidecarNamer"/>), so for every video item
+/// the library holds there are exactly two names per profile — claimed and unclaimed — in each of
+/// the two folders a track can be in (<see cref="SidecarPlacement"/>): beside the item, and in its
+/// metadata folder. Both are looked in whatever the setting says now, because it may have said the
+/// other one when the track was written. Read by listing each directory once rather than testing
+/// each name: a release folder holds a whole season, so this is one <c>readdir</c> where it would
+/// otherwise be ten <c>stat</c>s an episode.
 /// </para>
 /// <para>
 /// <b>And whatever the records name.</b> That is the only thing that finds a file written under a
@@ -48,15 +51,18 @@ namespace Jellyfin.Plugin.DialogueBoost.Output;
 public sealed class SidecarSweep
 {
     private readonly IMediaLibrary _library;
+    private readonly SidecarPlacement _placement;
     private readonly ProcessingStateRepository _state;
     private readonly ILogger<SidecarSweep> _logger;
 
     public SidecarSweep(
         IMediaLibrary library,
+        SidecarPlacement placement,
         ProcessingStateRepository state,
         ILogger<SidecarSweep> logger)
     {
         _library = library;
+        _placement = placement;
         _state = state;
         _logger = logger;
     }
@@ -91,7 +97,7 @@ public sealed class SidecarSweep
         var files = new HashSet<string>(StringComparer.Ordinal);
         var items = new Dictionary<Guid, BaseItem>();
 
-        FindBesideEveryItem(markers, files, items, cancellationToken);
+        FindWhereverWritten(markers, files, items, cancellationToken);
         await FindByRecordAsync(files, items).ConfigureAwait(false);
 
         return new Found(files.ToList(), items.Values.ToList());
@@ -138,10 +144,10 @@ public sealed class SidecarSweep
     }
 
     /// <summary>
-    /// The names this plugin would write beside every item the library holds, listed a directory at
-    /// a time.
+    /// The names this plugin would write for every item the library holds, in both of the folders
+    /// they can be in, listed a directory at a time.
     /// </summary>
-    private void FindBesideEveryItem(
+    private void FindWhereverWritten(
         IReadOnlyList<string> markers,
         HashSet<string> files,
         Dictionary<Guid, BaseItem> items,
@@ -150,35 +156,19 @@ public sealed class SidecarSweep
         // directory → the sidecar names it could hold → the item each belongs to.
         var expected = new Dictionary<string, Dictionary<string, BaseItem>>(StringComparer.Ordinal);
 
-        foreach (var library in _library.Libraries())
+        foreach (var (item, directory) in EveryItemFolder(cancellationToken))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            foreach (var item in _library.Within(library, ProcessableItem.Kinds))
+            if (!expected.TryGetValue(directory, out var names))
             {
-                if (string.IsNullOrWhiteSpace(item.Path))
-                {
-                    continue;
-                }
+                names = new Dictionary<string, BaseItem>(StringComparer.Ordinal);
+                expected[directory] = names;
+            }
 
-                string directory = Path.GetDirectoryName(item.Path) ?? string.Empty;
-                if (directory.Length == 0)
+            foreach (var marker in markers)
+            {
+                foreach (var name in SidecarNamer.CandidateNames(item.Path, marker))
                 {
-                    continue;
-                }
-
-                if (!expected.TryGetValue(directory, out var names))
-                {
-                    names = new Dictionary<string, BaseItem>(StringComparer.Ordinal);
-                    expected[directory] = names;
-                }
-
-                foreach (var marker in markers)
-                {
-                    foreach (var candidate in SidecarNamer.CandidatePaths(item.Path, marker))
-                    {
-                        names[Path.GetFileName(candidate)] = item;
-                    }
+                    names[name] = item;
                 }
             }
         }
@@ -187,24 +177,7 @@ public sealed class SidecarSweep
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!Directory.Exists(directory))
-            {
-                continue;
-            }
-
-            IEnumerable<string> present;
-            try
-            {
-                present = Directory.EnumerateFiles(directory, "*.mka").ToList();
-            }
-            catch (Exception ex)
-            {
-                // A folder this plugin cannot read is a folder it never wrote to.
-                _logger.LogWarning(ex, "DialogueBoost: could not list {Directory}", directory);
-                continue;
-            }
-
-            foreach (var path in present)
+            foreach (var path in Listed(directory, "*.mka"))
             {
                 if (names.TryGetValue(Path.GetFileName(path), out var item))
                 {
@@ -212,6 +185,95 @@ public sealed class SidecarSweep
                     items[item.Id] = item;
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Deletes the temporary files that encodes interrupted by a crash or a hard stop left in the
+    /// folders this plugin writes into.
+    /// </summary>
+    /// <param name="writtenBeforeUtc">
+    /// Only files last written before this moment are touched — anything newer belongs to a run that
+    /// is still writing it.
+    /// </param>
+    /// <returns>How many were deleted.</returns>
+    public int RemoveLeftoverTemps(DateTime writtenBeforeUtc, CancellationToken cancellationToken)
+    {
+        int removed = 0;
+        var folders = EveryItemFolder(cancellationToken)
+            .Select(found => found.Folder)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var directory in folders)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var path in Listed(directory, "*.mka"))
+            {
+                if (!SidecarNamer.IsTemporary(Path.GetFileName(path)))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(path) >= writtenBeforeUtc)
+                    {
+                        continue;
+                    }
+
+                    File.Delete(path);
+                    removed++;
+                    _logger.LogInformation("DialogueBoost: removed {Path}, left behind by an encode that never finished.", path);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "DialogueBoost: could not remove {Path}", path);
+                }
+            }
+        }
+
+        return removed;
+    }
+
+    /// <summary>
+    /// Every video item the libraries hold that has a file, once for each folder its tracks could
+    /// be in.
+    /// </summary>
+    private IEnumerable<(BaseItem Item, string Folder)> EveryItemFolder(CancellationToken cancellationToken)
+    {
+        foreach (var library in _library.Libraries())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var item in _library.Within(library, ProcessableItem.Kinds))
+            {
+                foreach (var folder in _placement.FoldersOf(item))
+                {
+                    yield return (item, folder);
+                }
+            }
+        }
+    }
+
+    /// <summary>A folder's files, or none where the folder is gone or will not be read.</summary>
+    private IReadOnlyList<string> Listed(string directory, string pattern)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return Array.Empty<string>();
+        }
+
+        try
+        {
+            return Directory.EnumerateFiles(directory, pattern).ToList();
+        }
+        catch (Exception ex)
+        {
+            // A folder this plugin cannot read is a folder it never wrote to.
+            _logger.LogWarning(ex, "DialogueBoost: could not list {Directory}", directory);
+            return Array.Empty<string>();
         }
     }
 
