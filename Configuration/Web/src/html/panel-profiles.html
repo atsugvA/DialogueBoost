@@ -1,0 +1,333 @@
+<!--
+    How to process it.
+
+    Every sidecar on this server is Dialogue Boost, so it keeps its parameters open and the other
+    four collapse to a switch and a sentence that says what they do to the sound rather than what
+    filter they call.
+-->
+<section class="db-panel" data-panel="profiles" data-on="0" role="tabpanel">
+    <!--
+        The rates real audio tracks are carried at, offered to every "a rate I choose" field on the
+        page. A datalist suggests and never constrains: the input still takes any number between
+        the encoders' own measured bounds.
+    -->
+    <datalist id="dbCommonRates">
+        <option value="128"></option>
+        <option value="192"></option>
+        <option value="224"></option>
+        <option value="256"></option>
+        <option value="320"></option>
+        <option value="384"></option>
+        <option value="448"></option>
+        <option value="640"></option>
+        <option value="768"></option>
+    </datalist>
+    <div class="db-prof db-prof-primary">
+        <div class="db-prof-head">
+            <label><input is="emby-checkbox" type="checkbox" id="chkDbEnabled" /><span class="db-check-name">Dialogue Boost</span></label>
+            <div>
+                <div class="db-prof-name">Dialogue Boost</div>
+                <p class="db-prof-desc">
+                    Lifts the centre channel, where speech sits, and leaves the rest of the mix
+                    alone. The result is written as a second audio track you pick in the player.
+                </p>
+            </div>
+            <span class="db-prof-spacer"></span>
+            <div class="db-meter" id="dbMeter" aria-hidden="true">
+                <div class="db-meter-ch"><div class="db-meter-bar"></div><div class="db-meter-l">L</div></div>
+                <div class="db-meter-ch"><div class="db-meter-bar"></div><div class="db-meter-l">R</div></div>
+                <div class="db-meter-ch" data-centre="1"><div class="db-meter-bar"></div><div class="db-meter-l">C</div></div>
+                <div class="db-meter-ch"><div class="db-meter-bar"></div><div class="db-meter-l">LFE</div></div>
+                <div class="db-meter-ch"><div class="db-meter-bar"></div><div class="db-meter-l">Ls</div></div>
+                <div class="db-meter-ch"><div class="db-meter-bar"></div><div class="db-meter-l">Rs</div></div>
+            </div>
+            <span class="db-meter-cap" id="dbMeterCap">+4.0 dB</span>
+        </div>
+
+        <div class="db-prof-body">
+                    <div class="db-field">
+                        <label class="db-label" for="txtCenterGainDb">Centre channel gain (dB)</label>
+                        <input is="emby-input" type="number" step="0.5" id="txtCenterGainDb" value="4.0" />
+                        <div class="fieldDescription">Applied to every layout that has a centre channel, 3.0 through 7.1, and every other channel is carried through untouched. A stereo source has no centre, so the voice is separated out of the pair instead.</div>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtDbLanguages">Process these languages</label>
+                        <input is="emby-input" type="text" id="txtDbLanguages" />
+                        <div class="fieldDescription">Comma-separated, e.g. eng, spa. Empty means every candidate language.</div>
+                        <details class="db-hint">
+                            <summary>Which code do I write?</summary>
+                            <div class="db-hint-body" data-language-codes></div>
+                        </details>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="selDbBitrateMode">Bitrate</label>
+                        <select is="emby-select" id="selDbBitrateMode" data-preset="eac3 at 640k up to 5.1, aac at 64k a channel above it, and aac at 256k once the track is stereo">
+                            <option value="Auto">follow the source</option>
+                            <option value="Preset">the profile default</option>
+                            <option value="Manual">a rate I choose</option>
+                        </select>
+                        <div class="fieldDescription" data-bitrate-hint="Db"></div>
+                    </div>
+                    <div class="db-field" data-bitrate-manual="Db" hidden>
+                        <label class="db-label" for="txtDbBitrateKbps">Rate (kbps)</label>
+                        <input is="emby-input" type="number" min="40" max="5644" step="8" id="txtDbBitrateKbps" value="256" list="dbCommonRates" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtDbMarker">Track name in the player</label>
+                        <input is="emby-input" type="text" id="txtDbMarker" value="Dialogue Boost" />
+                    </div>
+                    <div class="db-field db-field-tight">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="chkDbSetDefault" />
+                            <span>Start playback on this track</span>
+                        </label>
+                        <div class="fieldDescription">The player opens on the boosted track instead of the source's own, so nobody has to pick it from the audio menu each time. Only one profile can hold this — switching it on here takes it off the others. A viewer whose Jellyfin account prefers a particular audio language still gets that language first.</div>
+                    </div>
+        </div>
+
+        <div class="db-out">
+            <div class="db-out-k">Writes, beside each source file</div>
+            <div class="db-out-v" data-out-for="txtDbMarker"></div>
+        </div>
+    </div>
+
+    <div class="db-prof db-prof-others">
+        <div class="db-prof-others-k">Other profiles</div>
+            <div class="db-alt" data-alt="Nm" data-open="0">
+                <div class="db-alt-head">
+                    <label><input is="emby-checkbox" type="checkbox" id="chkNmEnabled" /><span class="db-check-name">Night Mode</span></label>
+                    <span class="db-alt-name">Night Mode</span>
+                    <span class="db-alt-desc">&mdash; flattens the gap between whispers and explosions, for watching late.</span>
+                    <span class="db-prof-spacer"></span>
+                    <span class="db-alt-chev">&#9660;</span>
+                </div>
+                <div class="db-alt-body">
+                    <div class="db-prof-body">
+                    <div class="db-field">
+                        <label class="db-label" for="txtNmGain">How hard to flatten</label>
+                        <input is="emby-input" type="number" step="0.5" id="txtNmGain" value="15.0" />
+                        <div class="fieldDescription">The dynaudnorm maximum amplification factor. Higher is flatter.</div>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtNmLanguages">Process these languages</label>
+                        <input is="emby-input" type="text" id="txtNmLanguages" />
+                        <div class="fieldDescription">Comma-separated, e.g. eng, spa. Empty means every candidate language.</div>
+                        <details class="db-hint">
+                            <summary>Which code do I write?</summary>
+                            <div class="db-hint-body" data-language-codes></div>
+                        </details>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="selNmBitrateMode">Bitrate</label>
+                        <select is="emby-select" id="selNmBitrateMode" data-preset="aac at 256k">
+                            <option value="Auto">follow the source</option>
+                            <option value="Preset">the profile default</option>
+                            <option value="Manual">a rate I choose</option>
+                        </select>
+                        <div class="fieldDescription" data-bitrate-hint="Nm"></div>
+                    </div>
+                    <div class="db-field" data-bitrate-manual="Nm" hidden>
+                        <label class="db-label" for="txtNmBitrateKbps">Rate (kbps)</label>
+                        <input is="emby-input" type="number" min="40" max="5644" step="8" id="txtNmBitrateKbps" value="256" list="dbCommonRates" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtNmMarker">Track name in the player</label>
+                        <input is="emby-input" type="text" id="txtNmMarker" value="Broadband Night Mode" />
+                    </div>
+                    <div class="db-field db-field-tight">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="chkNmSetDefault" />
+                            <span>Start playback on this track</span>
+                        </label>
+                        <div class="fieldDescription">The player opens on the boosted track instead of the source's own, so nobody has to pick it from the audio menu each time. Only one profile can hold this — switching it on here takes it off the others. A viewer whose Jellyfin account prefers a particular audio language still gets that language first.</div>
+                    </div>
+                    </div>
+                    <div class="db-out">
+                        <div class="db-out-k">Writes, beside each source file</div>
+                        <div class="db-out-v" data-out-for="txtNmMarker"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="db-alt" data-alt="Sp" data-open="0">
+                <div class="db-alt-head">
+                    <label><input is="emby-checkbox" type="checkbox" id="chkSpEnabled" /><span class="db-check-name">Speech / Podcast</span></label>
+                    <span class="db-alt-name">Speech / Podcast</span>
+                    <span class="db-alt-desc">&mdash; pushes voices to a constant level. Best on talk, worst on music.</span>
+                    <span class="db-prof-spacer"></span>
+                    <span class="db-alt-chev">&#9660;</span>
+                </div>
+                <div class="db-alt-body">
+                    <div class="db-prof-body">
+                    <div class="db-field">
+                        <label class="db-label" for="txtSpPeak">Target peak</label>
+                        <input is="emby-input" type="number" step="0.01" id="txtSpPeak" value="0.95" />
+                        <div class="fieldDescription">Where speechnorm aims each syllable, as a fraction of full scale.</div>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtSpLanguages">Process these languages</label>
+                        <input is="emby-input" type="text" id="txtSpLanguages" />
+                        <div class="fieldDescription">Comma-separated, e.g. eng, spa. Empty means every candidate language.</div>
+                        <details class="db-hint">
+                            <summary>Which code do I write?</summary>
+                            <div class="db-hint-body" data-language-codes></div>
+                        </details>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="selSpBitrateMode">Bitrate</label>
+                        <select is="emby-select" id="selSpBitrateMode" data-preset="aac at 256k">
+                            <option value="Auto">follow the source</option>
+                            <option value="Preset">the profile default</option>
+                            <option value="Manual">a rate I choose</option>
+                        </select>
+                        <div class="fieldDescription" data-bitrate-hint="Sp"></div>
+                    </div>
+                    <div class="db-field" data-bitrate-manual="Sp" hidden>
+                        <label class="db-label" for="txtSpBitrateKbps">Rate (kbps)</label>
+                        <input is="emby-input" type="number" min="40" max="5644" step="8" id="txtSpBitrateKbps" value="256" list="dbCommonRates" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtSpMarker">Track name in the player</label>
+                        <input is="emby-input" type="text" id="txtSpMarker" value="Speech Boost" />
+                    </div>
+                    <div class="db-field db-field-tight">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="chkSpSetDefault" />
+                            <span>Start playback on this track</span>
+                        </label>
+                        <div class="fieldDescription">The player opens on the boosted track instead of the source's own, so nobody has to pick it from the audio menu each time. Only one profile can hold this — switching it on here takes it off the others. A viewer whose Jellyfin account prefers a particular audio language still gets that language first.</div>
+                    </div>
+                    </div>
+                    <div class="db-out">
+                        <div class="db-out-k">Writes, beside each source file</div>
+                        <div class="db-out-v" data-out-for="txtSpMarker"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="db-alt" data-alt="Ebu" data-open="0">
+                <div class="db-alt-head">
+                    <label><input is="emby-checkbox" type="checkbox" id="chkEbuEnabled" /><span class="db-check-name">EBU R128</span></label>
+                    <span class="db-alt-name">EBU R128</span>
+                    <span class="db-alt-desc">&mdash; the broadcast loudness standard, −23 LUFS. Consistent across your whole library.</span>
+                    <span class="db-prof-spacer"></span>
+                    <span class="db-alt-chev">&#9660;</span>
+                </div>
+                <div class="db-alt-body">
+                    <div class="db-prof-body">
+                    <div class="db-field">
+                        <label class="db-label" for="txtEbuI">Loudness (LUFS)</label>
+                        <input is="emby-input" type="number" step="0.5" id="txtEbuI" value="-23.0" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtEbuTP">True peak (dBTP)</label>
+                        <input is="emby-input" type="number" step="0.1" id="txtEbuTP" value="-2.0" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtEbuLRA">Loudness range (LU)</label>
+                        <input is="emby-input" type="number" step="0.5" id="txtEbuLRA" value="7.0" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtEbuLanguages">Process these languages</label>
+                        <input is="emby-input" type="text" id="txtEbuLanguages" />
+                        <div class="fieldDescription">Comma-separated, e.g. eng, spa. Empty means every candidate language.</div>
+                        <details class="db-hint">
+                            <summary>Which code do I write?</summary>
+                            <div class="db-hint-body" data-language-codes></div>
+                        </details>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="selEbuBitrateMode">Bitrate</label>
+                        <select is="emby-select" id="selEbuBitrateMode" data-preset="aac at 256k">
+                            <option value="Auto">follow the source</option>
+                            <option value="Preset">the profile default</option>
+                            <option value="Manual">a rate I choose</option>
+                        </select>
+                        <div class="fieldDescription" data-bitrate-hint="Ebu"></div>
+                    </div>
+                    <div class="db-field" data-bitrate-manual="Ebu" hidden>
+                        <label class="db-label" for="txtEbuBitrateKbps">Rate (kbps)</label>
+                        <input is="emby-input" type="number" min="40" max="5644" step="8" id="txtEbuBitrateKbps" value="256" list="dbCommonRates" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtEbuMarker">Track name in the player</label>
+                        <input is="emby-input" type="text" id="txtEbuMarker" value="EBU R128" />
+                    </div>
+                    <div class="db-field db-field-tight">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="chkEbuSetDefault" />
+                            <span>Start playback on this track</span>
+                        </label>
+                        <div class="fieldDescription">The player opens on the boosted track instead of the source's own, so nobody has to pick it from the audio menu each time. Only one profile can hold this — switching it on here takes it off the others. A viewer whose Jellyfin account prefers a particular audio language still gets that language first.</div>
+                    </div>
+                    </div>
+                    <div class="db-out">
+                        <div class="db-out-k">Writes, beside each source file</div>
+                        <div class="db-out-v" data-out-for="txtEbuMarker"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="db-alt" data-alt="Cust" data-open="0">
+                <div class="db-alt-head">
+                    <label><input is="emby-checkbox" type="checkbox" id="chkCustEnabled" /><span class="db-check-name">Custom filter</span></label>
+                    <span class="db-alt-name">Custom filter</span>
+                    <span class="db-alt-desc">&mdash; your own ffmpeg filtergraph, if you know exactly what you want.</span>
+                    <span class="db-prof-spacer"></span>
+                    <span class="db-alt-chev">&#9660;</span>
+                </div>
+                <div class="db-alt-body">
+                    <div class="db-prof-body">
+                    <div class="db-field" style="flex-basis: 100%">
+                        <label class="db-label" for="txtCustFilter">Filtergraph</label>
+                        <input is="emby-input" type="text" id="txtCustFilter" />
+                        <div class="fieldDescription">Passed to ffmpeg as -af, verbatim. e.g. volume=1.5, lowpass=f=3000</div>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtCustCodec">Codec</label>
+                        <input is="emby-input" type="text" id="txtCustCodec" value="aac" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtCustBitrate">Profile default</label>
+                        <input is="emby-input" type="text" id="txtCustBitrate" value="256k" />
+                        <div class="fieldDescription">What <i>the profile default</i> means here, and what <i>follow the source</i> falls back to. Passed to ffmpeg as -b:a, verbatim.</div>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="selCustBitrateMode">Bitrate</label>
+                        <select is="emby-select" id="selCustBitrateMode" data-preset="the codec and the rate above">
+                            <option value="Auto">follow the source</option>
+                            <option value="Preset">the profile default</option>
+                            <option value="Manual">a rate I choose</option>
+                        </select>
+                        <div class="fieldDescription" data-bitrate-hint="Cust"></div>
+                    </div>
+                    <div class="db-field" data-bitrate-manual="Cust" hidden>
+                        <label class="db-label" for="txtCustBitrateKbps">Rate (kbps)</label>
+                        <input is="emby-input" type="number" min="40" max="5644" step="8" id="txtCustBitrateKbps" value="256" list="dbCommonRates" />
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtCustLanguages">Process these languages</label>
+                        <input is="emby-input" type="text" id="txtCustLanguages" />
+                        <div class="fieldDescription">Comma-separated, e.g. eng, spa. Empty means every candidate language.</div>
+                        <details class="db-hint">
+                            <summary>Which code do I write?</summary>
+                            <div class="db-hint-body" data-language-codes></div>
+                        </details>
+                    </div>
+                    <div class="db-field">
+                        <label class="db-label" for="txtCustMarker">Track name in the player</label>
+                        <input is="emby-input" type="text" id="txtCustMarker" value="Custom Track" />
+                    </div>
+                    <div class="db-field db-field-tight">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="chkCustSetDefault" />
+                            <span>Start playback on this track</span>
+                        </label>
+                        <div class="fieldDescription">The player opens on the boosted track instead of the source's own, so nobody has to pick it from the audio menu each time. Only one profile can hold this — switching it on here takes it off the others. A viewer whose Jellyfin account prefers a particular audio language still gets that language first.</div>
+                    </div>
+                    </div>
+                    <div class="db-out">
+                        <div class="db-out-k">Writes, beside each source file</div>
+                        <div class="db-out-v" data-out-for="txtCustMarker"></div>
+                    </div>
+                </div>
+            </div>
+    </div>
+</section>

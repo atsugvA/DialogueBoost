@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Dialogue Boost Settings</title>
+</head>
+<body>
+    <div id="dialogueBoostConfigPage" data-role="page" class="page type-interior pluginConfigurationPage dialogueBoostConfigurationPage" data-require="emby-button,emby-select,emby-checkbox,emby-input">
+        <!--
+            The stylesheet lives here, inside the page element, and not in <head>. Jellyfin's
+            router grafts only the `data-role="page"` element into its own container and throws
+            the rest of the document away, so a <style> in <head> never reaches the browser and
+            the page renders with none of its own rules. The script below survives for the
+            same reason: it is inside this element.
+        -->
+        <style>
+            <!-- @include css/tokens.css -->
+
+            <!-- @include css/band.css -->
+
+            <!-- @include css/tabs.css -->
+
+            <!-- @include css/tree.css -->
+
+            <!-- @include css/profiles.css -->
+
+            <!-- @include css/advanced.css -->
+        </style>
+
+        <div data-role="content">
+            <div class="content-primary">
+                
+                <form id="dialogueBoostConfigForm" class="dialogueBoostConfigurationPage">
+                    <!-- @include html/band.html -->
+
+                    <!-- @include html/tabs.html -->
+
+                    <!-- @include html/panel-media.html -->
+
+                    <!-- @include html/panel-profiles.html -->
+
+                    <!-- @include html/panel-advanced.html -->
+
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            <!-- @include js/theme.js -->
+
+            /*
+                One scope for every part below, so a helper written once is callable from all of
+                them. theme.js stays outside it: it publishes CSS custom properties and nothing
+                else, so it shares nothing and its names collide with nobody.
+            */
+            (function () {
+                <!-- @include js/api.js -->
+
+                <!-- @include js/html.js -->
+
+                <!-- @include js/band.js -->
+
+                <!-- @include js/tabs.js -->
+
+                <!-- @include js/tree.js -->
+
+                <!-- @include js/coverage.js -->
+
+                <!-- @include js/languages.js -->
+
+                <!-- @include js/profiles.js -->
+
+                <!-- @include js/advanced.js -->
+
+                <!-- @include js/settings.js -->
+            })();
+        </script>
+    </div>
+</body>
+</html>

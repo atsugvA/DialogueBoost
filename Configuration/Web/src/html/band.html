@@ -1,0 +1,59 @@
+<!--
+    The page's first altitude: whether it is working.
+
+    Four numbers above everything else, answering the only question anyone brings to this page,
+    with no scrolling and no click. Two strips sit under them for the times something is more
+    urgent than a number — a run in progress, and a folder that cannot be written, which is the
+    failure that cost a week while the old page said nothing at all.
+
+    Every control here is one of Jellyfin's own classes, so the active theme styles it.
+-->
+<header class="db-head">
+    <div>
+        <h2 class="db-title">Dialogue Boost</h2>
+        <p class="db-lede">Enhanced audio tracks, written beside your media. Source files are never touched.</p>
+    </div>
+    <div class="db-head-acts">
+        <button is="emby-button" type="button" id="btnBandRun" class="raised db-act"><span>Run now</span></button>
+        <button is="emby-button" type="button" id="btnBandStop" class="raised db-act db-act-stop" hidden><span>Stop</span></button>
+        <button is="emby-button" type="submit" class="raised button-submit db-act"><span>Save</span></button>
+    </div>
+</header>
+
+<div class="db-band" id="dbBand">
+    <div class="db-cell">
+        <div class="db-cell-k"><i></i>Covered</div>
+        <div class="db-cell-v" id="bandCovered">&mdash;</div>
+        <div class="db-cell-n" id="bandCoveredNote">reading the selection</div>
+    </div>
+    <div class="db-cell db-cell-live" id="bandWrittenCell">
+        <div class="db-cell-k"><i></i>Written</div>
+        <div class="db-cell-v" id="bandWritten">&mdash;</div>
+        <div class="db-cell-n" id="bandWrittenNote">counting what is on disk</div>
+    </div>
+    <div class="db-cell db-cell-next" id="bandNextCell">
+        <div class="db-cell-k"><i></i>Next run</div>
+        <div class="db-cell-v" id="bandNext">&mdash;</div>
+        <div class="db-cell-n" id="bandNextNote">reading Jellyfin's schedule</div>
+    </div>
+    <div class="db-cell" id="bandStorageCell">
+        <div class="db-cell-k"><i></i>Storage</div>
+        <div class="db-cell-v" id="bandStorage">&mdash;</div>
+        <div class="db-cell-n" id="bandStorageNote">probing the chosen folders</div>
+    </div>
+
+    <div class="db-strip" id="bandRunStrip">
+        <span class="db-strip-k">Running</span>
+        <span class="db-bar"><i id="bandBarFill"></i></span>
+        <span class="db-strip-n" id="bandPct">0.0%</span>
+        <span class="db-strip-w" id="bandRunNote"></span>
+    </div>
+
+    <div class="db-alert" id="bandAlert">
+        <span class="db-alert-ic" aria-hidden="true">&#9888;</span>
+        <div>
+            <div class="db-alert-t" id="bandAlertTitle"></div>
+            <div id="bandAlertPaths"></div>
+        </div>
+    </div>
+</div>

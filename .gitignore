@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Packaging artifacts
+*.zip
+*.nupkg
+
+# Local scratch
+scratch/
+*.local
+
+# Assembled at build time from Configuration/Web/src/ — see build/WebAssets.targets
+Configuration/Web/config.html
+
+# importing scripts/probe-config-page.py for a one-off check leaves these
+__pycache__/
+dist/

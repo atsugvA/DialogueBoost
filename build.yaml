@@ -1,0 +1,9 @@
+name: "Dialogue Boost"
+guid: "a818318e-49b0-466d-963a-4467c6999b10"
+version: "1.0.0.0"
+targetFramework: "net9.0"
+description: "Dialogue enhancement plugin for Jellyfin."
+overview: "Dialogue enhancement sidecar audio track generator."
+category: "General"
+artifacts:
+  - "Jellyfin.Plugin.DialogueBoost.dll"

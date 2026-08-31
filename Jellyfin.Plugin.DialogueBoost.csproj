@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyTitle>Jellyfin.Plugin.DialogueBoost</AssemblyTitle>
+    <RootNamespace>Jellyfin.Plugin.DialogueBoost</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Jellyfin.Plugin.DialogueBoost.Tests\**;Jellyfin.Plugin.DialogueBoost.Tests/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.11" PrivateAssets="All" />
+    <PackageReference Include="Jellyfin.Model" Version="10.11.11" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- config.html is assembled from Configuration/Web/src/ — see build/WebAssets.targets. -->
+  </ItemGroup>
+
+  <Import Project="build/WebAssets.targets" />
+
+</Project>

@@ -1,0 +1,290 @@
+/*
+ * Advanced: everything a working server never needs to open.
+ *
+ * Grouped by the question each answers rather than by which class implements it, and each group
+ * says in its header what it is for, so the fields inside need less explaining.
+ */
+
+.db-group {
+    margin-bottom: var(--db-s4);
+    background: var(--db-surface);
+    border: 1px solid var(--db-rule);
+    border-radius: var(--db-radius-card);
+    overflow: hidden;
+}
+
+.db-group-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--db-s2) var(--db-s3);
+    padding: var(--db-s3) var(--db-s4);
+    border-bottom: 1px solid var(--db-rule);
+}
+
+.db-group-head b {
+    font-size: var(--db-t-md);
+    font-weight: 700;
+    color: var(--db-fg-strong);
+}
+
+.db-group-head span {
+    font-size: var(--db-t-sm);
+    color: var(--db-muted);
+}
+
+.db-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: var(--db-s4) var(--db-s5);
+    padding: var(--db-s4);
+}
+
+.db-grid-wide {
+    grid-column: 1 / -1;
+}
+
+.db-grid label.db-label {
+    display: block;
+    margin-bottom: var(--db-s2);
+    font-size: var(--db-t-xs);
+    color: var(--db-label);
+}
+
+.db-grid input:not([type="checkbox"]),
+.db-grid select {
+    width: 100%;
+    margin: 0;
+}
+
+.db-grid .fieldDescription {
+    margin-top: var(--db-s2);
+    font-size: var(--db-t-xs);
+    color: var(--db-muted);
+}
+
+.db-check label,
+.db-checks label {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    font-size: var(--db-t-sm);
+    white-space: nowrap;
+}
+
+.db-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--db-s3) var(--db-s5);
+}
+
+/* Silent unless the server had something to say. */
+.db-kv-note {
+    color: var(--db-warn);
+}
+
+.db-kv-note:empty {
+    display: none;
+}
+
+/* ── read-back rows ─────────────────────────────────────────────────────────────────────── */
+
+.db-kv {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--db-s2) var(--db-s4);
+    padding: var(--db-s3) var(--db-s4);
+    border-bottom: 1px solid var(--db-rule);
+    font-size: var(--db-t-sm);
+}
+
+.db-kv:last-child {
+    border-bottom: 0;
+}
+
+.db-kv-k {
+    flex: 0 0 12rem;
+    color: var(--db-label);
+}
+
+.db-kv-v {
+    flex: 1 1 12rem;
+    min-width: 0;
+    color: var(--db-fg);
+}
+
+.db-kv-v.db-mono {
+    font-family: var(--db-mono);
+    font-size: var(--db-t-xs);
+    word-break: break-all;
+}
+
+.db-kv-v b {
+    color: var(--db-fg-strong);
+}
+
+.db-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--db-s2);
+    font-weight: 600;
+    color: var(--db-accent-text);
+    white-space: nowrap;
+}
+
+.db-ok::before {
+    content: "";
+    width: .45em;
+    height: .45em;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.db-bad {
+    color: var(--db-warn);
+    font-weight: 600;
+}
+
+/* ── the records ────────────────────────────────────────────────────────────────────────── */
+
+.db-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--db-s3);
+    padding: var(--db-s3) var(--db-s4);
+    border-bottom: 1px solid var(--db-rule);
+}
+
+.db-tools input[type="search"] {
+    flex: 1 1 14rem;
+    margin: 0;
+}
+
+.db-tools select {
+    margin: 0;
+    width: auto;
+}
+
+.db-tools .db-tools-gap {
+    flex: 1 1 auto;
+}
+
+.db-scroll {
+    overflow-x: auto;
+}
+
+.db-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--db-t-sm);
+}
+
+.db-table th {
+    padding: var(--db-s2) var(--db-s4);
+    text-align: left;
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    font-weight: 600;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--db-muted);
+    border-bottom: 1px solid var(--db-rule);
+    white-space: nowrap;
+}
+
+.db-table td {
+    padding: var(--db-s2) var(--db-s4);
+    border-bottom: 1px solid var(--db-rule);
+    vertical-align: top;
+}
+
+.db-table tr:nth-child(even) td {
+    background: var(--db-shade);
+}
+
+/*
+ * The records table fits its column, and it used to be one filename that stopped it.
+ *
+ * Jellyfin caps every form at 54em (`form { max-width: 54em }`, its own global rule), so this
+ * table gets 801 px however wide the browser is. A release name — `Example.Show.S01E04.1080p.
+ * WEB.h264.mkv` — has no spaces and dots are not break opportunities, so it is a
+ * single token and the column's *min-content* width was the longest name in the table: 423 px of
+ * the 801, against 512 px the other five columns will not go below. 934 wanted, 801 available,
+ * 133 px of sideways scroll on every load.
+ *
+ * `overflow-wrap: anywhere` and not `break-word`: only `anywhere` is allowed to shrink the
+ * intrinsic minimum, which is the whole point here. Measured on the live page, 83 records: the
+ * column falls to 263 px and the overflow to **0**, with the other columns gaining the slack.
+ * `.db-scroll` stays as the floor for a window narrower than the table's real minimum.
+ */
+.db-table .db-file {
+    overflow-wrap: anywhere;
+}
+
+.db-table .db-path {
+    margin-top: 2px;
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    color: var(--db-muted);
+    word-break: break-all;
+}
+
+/* A path breaks anywhere because it has no words; a sentence explaining a failure has words,
+   and breaking those makes the one thing worth reading harder to read. Except that an ffmpeg
+   error is both — words and the path it failed on — so the long token wraps and the block is
+   clamped to three lines, with the whole of it on the cell's tooltip. The server bounds this
+   too; the clamp is what keeps one bad row from being taller than the table. */
+.db-reason {
+    margin-top: 2px;
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    color: var(--db-muted);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+}
+
+.db-table .db-path b {
+    color: var(--db-accent-text);
+    font-weight: 600;
+}
+
+.db-table-note {
+    padding: var(--db-s3) var(--db-s4);
+    font-size: var(--db-t-sm);
+    color: var(--db-muted);
+}
+
+.db-mini {
+    appearance: none;
+    margin: 0;
+    padding: .25em .7em;
+    font-family: inherit;
+    font-size: var(--db-t-xs);
+    color: var(--db-fg);
+    background: var(--db-raised);
+    border: 0;
+    border-radius: var(--db-radius);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.db-mini:hover {
+    filter: brightness(1.12);
+}
+
+.db-mini-on {
+    background: var(--db-accent);
+    color: var(--db-accent-ink);
+    font-weight: 600;
+}
+
+.db-mini-danger {
+    background: var(--db-danger);
+    color: var(--db-danger-ink);
+}

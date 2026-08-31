@@ -1,0 +1,108 @@
+<Project>
+
+  <!--
+    Assembles the plugin's config pages from Configuration/Web/src/ into single HTML files.
+
+    Jellyfin loads a config page as one embedded resource, so the page has to ship as one file.
+    That is a packaging constraint, not a reason to edit a two-thousand-line document: the source
+    is split by responsibility, and this joins it back together at build time.
+
+    Deliberately plain MSBuild — no npm, no node, nothing to install. The whole build stays
+    `dotnet build` on any OS the SDK runs on.
+
+    A shell names each part with an `@include <name>` marker, written as an HTML comment on a line
+    of its own. The marker's indentation is applied to every line of the part, so the assembled
+    page reads as if it had been written by hand.
+  -->
+
+  <PropertyGroup>
+    <WebSourceDir>$(MSBuildProjectDirectory)/Configuration/Web/src/</WebSourceDir>
+    <!--
+      Not $(IntermediateOutputPath): that is set by the SDK targets, which are imported after this
+      file, so it is still empty here. obj/ is the same place by another name, and is gitignored.
+    -->
+    <WebAssembledDir>$(MSBuildProjectDirectory)/obj/web/</WebAssembledDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Every part, so touching any one of them rebuilds the page that uses it. -->
+    <WebPagePart Include="$(WebSourceDir)**/*" />
+
+    <!-- One entry per assembled page. -->
+    <WebPage Include="$(WebSourceDir)config.shell.html">
+      <PageName>config.html</PageName>
+    </WebPage>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Named explicitly rather than globbed: the file does not exist until the target below runs,
+      and a glob is evaluated before any target does. A glob here would silently ship a plugin
+      with no config page on a fresh clone.
+    -->
+    <EmbeddedResource Include="$(WebAssembledDir)config.html"
+                      LogicalName="$(RootNamespace).Configuration.Web.config.html" />
+  </ItemGroup>
+
+  <UsingTask TaskName="AssembleWebPage"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Shell ParameterType="System.String" Required="true" />
+      <SourceDir ParameterType="System.String" Required="true" />
+      <Destination ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var include = new Regex(@"^([ \t]*)<!--[ \t]*@include[ \t]+(\S+)[ \t]*-->[ \t]*\r?$",
+                                RegexOptions.Multiline);
+        string missing = null;
+
+        string assembled = include.Replace(File.ReadAllText(Shell), match =>
+        {
+            string part = Path.Combine(SourceDir, match.Groups[2].Value);
+            if (!File.Exists(part))
+            {
+                missing = part;
+                return match.Value;
+            }
+
+            string indent = match.Groups[1].Value;
+            string[] lines = File.ReadAllText(part)
+                .Replace("\r\n", "\n")
+                .TrimEnd('\n')
+                .Split('\n');
+
+            return string.Join("\n", lines.Select(line => line.Length == 0 ? line : indent + line));
+        });
+
+        if (missing != null)
+        {
+            Log.LogError("Dialogue Boost: {0} includes a part that does not exist: {1}", Shell, missing);
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Destination));
+
+            // Only when it changed, so an unchanged page does not force a recompile.
+            if (!File.Exists(Destination) || File.ReadAllText(Destination) != assembled)
+            {
+                File.WriteAllText(Destination, assembled);
+                Log.LogMessage(MessageImportance.Normal, "Dialogue Boost: assembled " + Destination);
+            }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="AssembleWebPages"
+          BeforeTargets="PrepareForBuild"
+          Inputs="@(WebPagePart)"
+          Outputs="@(WebPage->'$(WebAssembledDir)%(PageName)')">
+    <AssembleWebPage Shell="%(WebPage.FullPath)"
+                     SourceDir="$(WebSourceDir)"
+                     Destination="$(WebAssembledDir)%(WebPage.PageName)" />
+  </Target>
+
+</Project>

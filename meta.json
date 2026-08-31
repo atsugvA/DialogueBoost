@@ -1,0 +1,11 @@
+{
+  "guid": "a818318e-49b0-466d-963a-4467c6999b10",
+  "name": "Dialogue Boost",
+  "overview": "Generates dialogue-enhanced sidecar audio tracks for Jellyfin media libraries.",
+  "description": "Dialogue Boost improves dialogue clarity in audio tracks by publishing the processed result as an additional player-selectable audio track without modifying source video files.",
+  "owner": "atsugvA",
+  "category": "General",
+  "version": "1.0.0.0",
+  "timestamp": "2026-08-31T14:58:13.0000000Z",
+  "targetAbi": "10.11.0.0"
+}

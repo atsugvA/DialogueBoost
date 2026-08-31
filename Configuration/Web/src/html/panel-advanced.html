@@ -1,0 +1,176 @@
+<!--
+    The fine print: everything a server that is working never needs to open.
+
+    Grouped by the question each answers, and each group says what it is for in its header so the
+    fields inside need less explaining than the old page's paragraph per input.
+-->
+<section class="db-panel" data-panel="advanced" data-on="0" role="tabpanel">
+
+    <div class="db-group">
+        <div class="db-group-head"><b>Which source tracks qualify</b><span>Tracks that fail these are left alone.</span></div>
+        <div class="db-grid">
+            <div>
+                <label class="db-label" for="txtRulesLanguages">Languages</label>
+                <input is="emby-input" type="text" id="txtRulesLanguages" placeholder="any" />
+                <div class="fieldDescription">Comma-separated ISO codes, e.g. eng, spa.</div>
+            </div>
+            <div>
+                <label class="db-label" for="txtRulesCodecs">Codecs</label>
+                <input is="emby-input" type="text" id="txtRulesCodecs" placeholder="any" />
+            </div>
+            <div>
+                <label class="db-label" for="txtRulesMinChannels">Channels, at least</label>
+                <input is="emby-input" type="number" id="txtRulesMinChannels" min="0" max="16" value="0" />
+            </div>
+            <div>
+                <label class="db-label" for="txtRulesMaxChannels">Channels, at most</label>
+                <input is="emby-input" type="number" id="txtRulesMaxChannels" min="0" max="16" value="0" />
+                <div class="fieldDescription">0 means no limit, at either end.</div>
+            </div>
+            <div class="db-grid-wide">
+                <label class="db-label" for="txtRulesTitleRegex">Track title must match</label>
+                <input is="emby-input" type="text" id="txtRulesTitleRegex" placeholder="no filter" />
+                <div class="fieldDescription">A regular expression, matched against the track's own title.</div>
+            </div>
+            <div class="db-grid-wide db-check">
+                <label>
+                    <input is="emby-checkbox" type="checkbox" id="chkRulesExcludeExternal" />
+                    <span>Ignore tracks that are already external files</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="db-group">
+        <div class="db-group-head"><b>When it runs</b><span>Held by Jellyfin's scheduler, not by this plugin.</span></div>
+        <div class="db-kv">
+            <span class="db-kv-k">Write new tracks</span>
+            <span class="db-kv-v">
+                <label class="db-check" style="display:inline-flex;align-items:center;gap:.5rem">
+                    <input is="emby-checkbox" type="checkbox" id="chkNormalizationDaily" />
+                    <span>every day at</span>
+                </label>
+                <input type="time" id="txtNormalizationTime" value="02:00" class="emby-input" />
+            </span>
+        </div>
+        <div class="db-kv">
+            <span class="db-kv-k">Remove watched tracks</span>
+            <span class="db-kv-v">
+                <label class="db-check" style="display:inline-flex;align-items:center;gap:.5rem">
+                    <input is="emby-checkbox" type="checkbox" id="chkCleanupDaily" />
+                    <span>every day at</span>
+                </label>
+                <input type="time" id="txtCleanupTime" value="03:00" class="emby-input" />
+            </span>
+        </div>
+        <div class="db-kv">
+            <span class="db-kv-k">Last completed</span>
+            <span class="db-kv-v" id="advLastRun">—</span>
+        </div>
+        <div class="db-kv">
+            <span class="db-kv-k"></span>
+            <span class="db-kv-v">
+                <button is="emby-button" type="button" id="btnRunCleanupNow" class="raised db-mini"><span>Remove watched tracks now</span></button>
+                <button is="emby-button" type="button" id="btnPurgeExemptNow" class="raised db-mini db-mini-danger"><span>…including protected ones</span></button>
+                <button is="emby-button" type="button" id="btnStopCleanup" class="raised db-mini db-mini-danger" hidden><span>Stop</span></button>
+                <span id="cleanupStatusMessage"></span>
+            </span>
+        </div>
+        <div class="db-kv db-kv-note" id="scheduleError"></div>
+    </div>
+
+    <div class="db-group">
+        <div class="db-group-head"><b>Who counts as having watched it</b><span>The same answer decides what is skipped and what the cleanup deletes.</span></div>
+        <div class="db-grid">
+            <div class="db-grid-wide">
+                <label class="db-label" for="selWatchedBy">Watched means</label>
+                <select is="emby-select" id="selWatchedBy">
+                    <option value="EveryActiveAccount">every enabled account has played it</option>
+                    <option value="ChosenAccounts">the accounts below have all played it</option>
+                </select>
+                <div class="fieldDescription">One account finishing an episode used to count for everybody, and the cleanup then deleted the boosted track the others were still using.</div>
+            </div>
+            <div class="db-grid-wide db-checks" id="watchedAccounts" hidden></div>
+            <div class="db-grid-wide fieldDescription" id="watchedNobody" hidden>No account is
+                ticked, so nothing counts as watched: no item is skipped for having been seen, and
+                the cleanup deletes nothing. Tick the accounts whose viewing history should decide.</div>
+            <div class="db-grid-wide db-checks">
+                <label><input is="emby-checkbox" type="checkbox" id="chkSkipWatchedItems" /><span>Skip items already watched</span></label>
+                <label><input is="emby-checkbox" type="checkbox" id="chkIncludeExemptInCleanup" /><span>Cleanup may remove protected tracks</span></label>
+            </div>
+        </div>
+    </div>
+
+    <div class="db-group">
+        <div class="db-group-head"><b>Engine</b><span>Leave these unless something is struggling.</span></div>
+        <div class="db-grid">
+            <div>
+                <label class="db-label" for="txtMaxConcurrentJobs">Jobs at once</label>
+                <input is="emby-input" type="number" id="txtMaxConcurrentJobs" min="1" max="32" value="1" required />
+                <div class="fieldDescription">Up to your CPU thread count. Audio filtering is single-threaded per stream, so this is what makes a batch fast.</div>
+            </div>
+            <div class="db-grid-wide db-checks">
+                <label><input is="emby-checkbox" type="checkbox" id="chkEnabled" /><span>Plugin enabled</span></label>
+                <label><input is="emby-checkbox" type="checkbox" id="chkPausePlayback" /><span>Pause while someone is watching</span></label>
+                <label><input is="emby-checkbox" type="checkbox" id="chkDryRun" /><span>Dry run — decide, but write nothing</span></label>
+            </div>
+        </div>
+    </div>
+
+    <div class="db-group">
+        <div class="db-group-head"><b>Storage</b><span>Checked per folder before every encode, because exposure is per folder.</span></div>
+        <div class="db-kv"><span class="db-kv-k">Runs as</span><span class="db-kv-v db-mono" id="advStorageUser">—</span></div>
+        <div class="db-kv"><span class="db-kv-k">Folders checked</span><span class="db-kv-v" id="advStorageCount">—</span></div>
+        <div id="advStorageProblems"></div>
+    </div>
+
+    <div class="db-group">
+        <div class="db-group-head"><b>What has been written</b><span id="advRecordsCount"></span></div>
+        <div class="db-tools">
+            <input is="emby-input" type="search" id="txtSearchHistory" placeholder="Filter by file, profile or status" />
+            <button is="emby-button" type="button" id="btnRefreshHistory" class="raised db-mini"><span>Refresh</span></button>
+            <span class="db-tools-gap"></span>
+            <!-- Filled from the profiles the server actually has: the hand-written list here
+                 offered "speech-boost" at a profile whose id is "speech", and the delete then
+                 matched no record and reported success over having done nothing. -->
+            <select is="emby-select" id="selectProfileToDelete"></select>
+            <button is="emby-button" type="button" id="btnDeleteProfileSidecars" class="raised db-mini db-mini-danger"><span>Remove every track for that profile</span></button>
+            <span id="bulkDeleteStatusMsg"></span>
+        </div>
+        <div class="db-scroll">
+            <table class="db-table" id="tblProcessedHistory">
+                <thead>
+                    <tr><th>Item</th><th>Profile</th><th>Written</th><th>Status</th><th>Cleanup</th><th></th></tr>
+                </thead>
+                <tbody><tr><td colspan="6" class="db-table-note">Reading the records…</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!--
+        The way out. Every other button on this page removes one kind of track — a profile's, a
+        watched item's, one row's — and a user who has decided to uninstall should not have to
+        work out which combination adds up to all of them. None of them stops the tracks coming
+        back, either: with the daily run still scheduled, a library emptied this afternoon is full
+        again by morning.
+    -->
+    <div class="db-group">
+        <div class="db-group-head"><b>Removing the plugin</b><span>Everything it wrote, gone, in one button.</span></div>
+        <div class="db-kv">
+            <span class="db-kv-k">If you are uninstalling</span>
+            <span class="db-kv-v">
+                Deletes every track this plugin has written — in every library, from every profile,
+                watched or not and protected or not — then clears its records, switches both daily
+                runs off and disables the plugin, so nothing writes them back before you remove it.
+                <b>Your source files are never opened.</b> It asks twice, and it cannot be undone.
+            </span>
+        </div>
+        <div class="db-kv">
+            <span class="db-kv-k"></span>
+            <span class="db-kv-v">
+                <button is="emby-button" type="button" id="btnRemoveEverything" class="raised db-mini db-mini-danger"><span>Remove every track and stand down</span></button>
+                <span id="removeEverythingMsg"></span>
+            </span>
+        </div>
+    </div>
+</section>

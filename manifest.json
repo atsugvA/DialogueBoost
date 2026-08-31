@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "a818318e-49b0-466d-963a-4467c6999b10",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "First public release.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/atsugvA/DialogueBoost/releases/download/v1.0.0.0/dialogue-boost_1.0.0.0.zip",
+        "checksum": "7f4872c15708f2725a0e238f399b6f2b",
+        "timestamp": "2026-08-31T14:58:13.0000000Z"
+      }
+    ],
+    "name": "Dialogue Boost",
+    "description": "Dialogue Boost improves dialogue clarity in audio tracks by publishing the processed result as an additional player-selectable audio track without modifying source video files.",
+    "overview": "Generates dialogue-enhanced sidecar audio tracks for Jellyfin media libraries.",
+    "owner": "atsugvA",
+    "category": "General"
+  }
+]

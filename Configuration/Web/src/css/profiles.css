@@ -1,0 +1,359 @@
+/*
+ * Profiles: what to do to the sound.
+ *
+ * One card carries its parameters in the open because it is the one every sidecar on a real
+ * server was written by; the rest are a switch and a sentence until someone wants them.
+ */
+
+.db-prof {
+    background: var(--db-surface);
+    border: 1px solid var(--db-rule);
+    border-radius: var(--db-radius-card);
+    overflow: hidden;
+}
+
+.db-prof + .db-prof {
+    margin-top: var(--db-s4);
+}
+
+.db-prof-primary {
+    border-color: var(--db-input-bd);
+}
+
+.db-prof-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--db-s3);
+    padding: var(--db-s4);
+}
+
+.db-prof-head > label {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+/*
+ * emby-checkbox's attachedCallback takes the first <span> inside the checkbox's parent and
+ * adds a class to it. With no span it throws on null, and the polyfill abandons the rest of
+ * that upgrade pass — so every checkbox after it stays a raw browser control. These
+ * five labels show their name in a sibling, so this is the span the component needs; since
+ * it has to exist anyway, it carries the accessible name the control never had.
+ */
+.db-check-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.db-prof-name {
+    font-size: var(--db-t-lg);
+    font-weight: 700;
+    color: var(--db-fg-strong);
+}
+
+.db-prof-desc {
+    margin: var(--db-s1) 0 0;
+    max-width: 58ch;
+    font-size: var(--db-t-sm);
+    color: var(--db-muted);
+}
+
+.db-prof-spacer {
+    flex: 1 1 auto;
+}
+
+.db-prof-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--db-s4) var(--db-s5);
+    padding: 0 var(--db-s4) var(--db-s4);
+}
+
+.db-field {
+    flex: 1 1 11rem;
+    min-width: 9rem;
+}
+
+/* Its label is a sentence, not a caption, so it gets a line of its own rather than being
+   squeezed between two inputs. */
+.db-field-tight {
+    flex: 1 1 100%;
+}
+
+.db-field .fieldDescription {
+    margin-top: var(--db-s2);
+    font-size: var(--db-t-xs);
+    color: var(--db-muted);
+}
+
+.db-field label.db-label {
+    display: block;
+    margin-bottom: var(--db-s2);
+    font-size: var(--db-t-xs);
+    color: var(--db-label);
+}
+
+/* A checkbox is not a text field: stretching it to the column width leaves its own label at
+   the far end of an empty line. */
+.db-field input:not([type="checkbox"]),
+.db-field select {
+    width: 100%;
+    margin: 0;
+}
+
+.db-field-tight label {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    font-size: var(--db-t-sm);
+}
+
+/* ── what it writes ─────────────────────────────────────────────────────────────────────── */
+
+.db-out {
+    margin: 0 var(--db-s4) var(--db-s4);
+    padding: var(--db-s3);
+    background: var(--db-shade);
+    border: 1px solid var(--db-rule);
+    border-radius: var(--db-radius);
+}
+
+.db-out-k {
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--db-muted);
+}
+
+.db-out-v {
+    margin-top: var(--db-s1);
+    font-family: var(--db-mono);
+    font-size: var(--db-t-xs);
+    color: var(--db-fg);
+    word-break: break-all;
+}
+
+.db-out-v b {
+    color: var(--db-accent-text);
+    font-weight: 600;
+}
+
+/* The half that is the file's own name, and the half that is this profile's. */
+.db-out-src {
+    color: var(--db-muted);
+}
+
+/* ── the channel figure ─────────────────────────────────────────────────────────────────── */
+
+/* Schematic, not a measurement: five channels left alone and the centre lifted. The number
+   beside it is the measurement. */
+.db-meter {
+    flex: none;
+    display: flex;
+    align-items: flex-end;
+    gap: var(--db-s1);
+    height: 4rem;
+}
+
+.db-meter-ch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--db-s1);
+    width: 1.5rem;
+    height: 100%;
+}
+
+.db-meter-bar {
+    width: 100%;
+    background: var(--db-hover);
+    border-radius: 1px;
+    transition: height .18s ease;
+}
+
+.db-meter-ch[data-centre="1"] .db-meter-bar {
+    background: var(--db-accent);
+}
+
+.db-meter-ch[data-centre="1"] .db-meter-l {
+    color: var(--db-accent-text);
+    font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .db-meter-bar {
+        transition: none;
+    }
+}
+
+.db-meter-l {
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    color: var(--db-muted);
+}
+
+.db-meter-cap {
+    flex: none;
+    align-self: flex-end;
+    padding-bottom: 1rem;
+    font-family: var(--db-mono);
+    font-size: var(--db-t-xs);
+    font-weight: 600;
+    color: var(--db-accent-text);
+    white-space: nowrap;
+}
+
+/* ── the four that are off ──────────────────────────────────────────────────────────────── */
+
+.db-prof-others {
+    margin-top: var(--db-s4);
+}
+
+.db-prof-others-k {
+    padding: var(--db-s3) var(--db-s4) var(--db-s2);
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--db-muted);
+}
+
+.db-alt {
+    border-top: 1px solid var(--db-rule);
+}
+
+.db-alt-head {
+    display: flex;
+    align-items: center;
+    gap: var(--db-s3);
+    padding: var(--db-s3) var(--db-s4);
+    cursor: pointer;
+}
+
+.db-alt-head:hover {
+    background: var(--db-hover);
+}
+
+.db-alt-head > label {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+.db-alt-name {
+    font-size: var(--db-t-sm);
+    font-weight: 600;
+    color: var(--db-fg-strong);
+}
+
+.db-alt-desc {
+    font-size: var(--db-t-sm);
+    color: var(--db-muted);
+}
+
+.db-alt-chev {
+    flex: none;
+    font-size: var(--db-t-xs);
+    color: var(--db-muted);
+    transition: transform .14s ease;
+}
+
+.db-alt[data-open="1"] .db-alt-chev {
+    transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .db-alt-chev {
+        transition: none;
+    }
+}
+
+.db-alt-body {
+    display: none;
+}
+
+.db-alt[data-open="1"] .db-alt-body {
+    display: block;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   The language-code hint.
+
+   A <details> rather than a tooltip or a popover: it needs no script to open, no positioning
+   against the viewport, and it answers on a phone the same way it answers on a desktop. Closed it
+   is one line under the field description; open it pushes the card down, which is what a reference
+   list should do rather than covering the field it is about.
+   --------------------------------------------------------------------------------------------- */
+.db-hint {
+    margin-top: var(--db-s1);
+    font-size: var(--db-t-xs);
+}
+
+/* A field is one column of a wrapping row, about eleven characters wide, and forty languages in
+   eleven characters is a nine-hundred-pixel ribbon. Opening the reference gives its field the whole
+   row for as long as it is open; closing it puts the field back. Where :has() is not understood the
+   list is merely narrow, which is the behaviour without this rule rather than a broken one. */
+.db-prof-body .db-field:has(.db-hint[open]) {
+    flex-basis: 100%;
+}
+
+.db-hint > summary {
+    display: inline-block;
+    cursor: pointer;
+    color: var(--db-accent-text);
+    list-style: none;
+}
+
+.db-hint > summary::-webkit-details-marker {
+    display: none;
+}
+
+.db-hint > summary::before {
+    content: "\25B8\00A0";
+}
+
+.db-hint[open] > summary::before {
+    content: "\25BE\00A0";
+}
+
+.db-hint-body {
+    margin-top: var(--db-s2);
+    padding: var(--db-s3);
+    border: 1px solid var(--db-rule);
+    border-radius: var(--db-radius);
+    background: var(--db-shade);
+}
+
+.db-hint-lead {
+    margin: 0 0 var(--db-s3) 0;
+    color: var(--db-fg);
+}
+
+/* Two or three columns where there is room, one where there is not — a 40-row reference should
+   not be 40 lines of scrolling on a wide card. */
+.db-langs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0 var(--db-s4);
+}
+
+.db-lang {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--db-s2);
+    padding: 1px 0;
+    color: var(--db-muted);
+}
+
+.db-lang-codes {
+    font-family: var(--db-mono);
+    color: var(--db-fg);
+    white-space: pre;
+}

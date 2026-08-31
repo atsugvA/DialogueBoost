@@ -1,0 +1,251 @@
+/*
+ * The status band, and the page head above it.
+ *
+ * Every colour here is a token from css/tokens.css, which js/theme.js fills in from the theme
+ * Jellyfin rendered. Nothing below may name one.
+ */
+
+/* ── head ───────────────────────────────────────────────────────────────────────────────── */
+
+.db-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--db-s5);
+    flex-wrap: wrap;
+}
+
+.db-head > div:first-child {
+    flex: 1 1 22rem;
+    min-width: 0;
+}
+
+.db-title {
+    margin: 0;
+    font-size: var(--db-t-2xl);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--db-fg-strong);
+}
+
+.db-lede {
+    margin: var(--db-s1) 0 0;
+    font-size: var(--db-t-sm);
+    color: var(--db-muted);
+    max-width: 62ch;
+}
+
+.db-head-acts {
+    display: flex;
+    align-items: center;
+    gap: var(--db-s2);
+    padding-top: var(--db-s1);
+    flex-wrap: wrap;
+}
+
+.db-quiet-link {
+    font-size: var(--db-t-xs);
+    color: var(--db-muted);
+    text-decoration: none;
+    margin-right: var(--db-s2);
+}
+
+.db-quiet-link:hover {
+    color: var(--db-accent-text);
+    text-decoration: underline;
+}
+
+/* Sized down from Jellyfin's default button, which is built for a dialog footer, not a toolbar. */
+.db-act {
+    margin: 0;
+    padding: .5em 1.15em;
+    font-size: var(--db-t-sm);
+    font-weight: 600;
+    border-radius: var(--db-radius);
+}
+
+.db-act-stop {
+    background: var(--db-danger);
+    color: var(--db-danger-ink);
+}
+
+/* ── the band ───────────────────────────────────────────────────────────────────────────── */
+
+.db-band {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: var(--db-s4);
+    background: var(--db-surface);
+    border: 1px solid var(--db-rule);
+    border-radius: var(--db-radius-card);
+}
+
+.db-cell {
+    flex: 1 1 10rem;
+    min-width: 0;
+    padding: var(--db-s3) var(--db-s4);
+    border-right: 1px solid var(--db-rule);
+}
+
+.db-cell:last-child {
+    border-right: 0;
+}
+
+.db-cell-k {
+    display: flex;
+    align-items: center;
+    gap: var(--db-s2);
+    margin-bottom: var(--db-s1);
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--db-muted);
+}
+
+.db-cell-k i {
+    flex: none;
+    display: block;
+    width: .45em;
+    height: .45em;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.db-cell-v {
+    font-size: var(--db-t-xl);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--db-fg-strong);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The second half of a number that has two — "35 · 4 left", and it stays in one piece. */
+.db-cell-v em {
+    font-style: normal;
+    white-space: nowrap;
+    color: var(--db-accent-text);
+}
+
+.db-cell-n {
+    margin-top: var(--db-s1);
+    font-size: var(--db-t-xs);
+    color: var(--db-muted);
+}
+
+.db-cell-live .db-cell-k {
+    color: var(--db-accent-text);
+}
+
+/* One cell turns when it is the reason the page is worth looking at. */
+.db-cell-warn .db-cell-k,
+.db-cell-warn .db-cell-v {
+    color: var(--db-warn);
+}
+
+/* ── the running strip ──────────────────────────────────────────────────────────────────── */
+
+.db-strip,
+.db-alert {
+    display: none;
+    width: 100%;
+    padding: var(--db-s3) var(--db-s4);
+    border-top: 1px solid var(--db-rule);
+}
+
+.db-band[data-running="1"] .db-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--db-s4);
+}
+
+/* While a run is on, what happens next is the run, not the schedule. */
+.db-band[data-running="1"] .db-cell-next {
+    display: none;
+}
+
+.db-band[data-storage="bad"] .db-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--db-s3);
+}
+
+.db-strip-k {
+    flex: none;
+    font-family: var(--db-mono);
+    font-size: var(--db-t-micro);
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--db-accent-text);
+}
+
+.db-bar {
+    flex: 1 1 8rem;
+    min-width: 6rem;
+    height: .38em;
+    border-radius: var(--db-radius);
+    background: var(--db-hover);
+    overflow: hidden;
+}
+
+.db-bar i {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: var(--db-accent);
+    border-radius: inherit;
+    transition: width .4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .db-bar i {
+        transition: none;
+    }
+}
+
+.db-strip-n {
+    flex: none;
+    font-size: var(--db-t-sm);
+    font-weight: 600;
+    color: var(--db-fg-strong);
+    font-variant-numeric: tabular-nums;
+}
+
+.db-strip-w {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: var(--db-t-sm);
+    color: var(--db-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── the storage alert ──────────────────────────────────────────────────────────────────── */
+
+.db-alert-ic {
+    flex: none;
+    color: var(--db-warn);
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.db-alert-t {
+    font-size: var(--db-t-sm);
+    font-weight: 600;
+    color: var(--db-fg-strong);
+}
+
+.db-alert-p {
+    margin-top: var(--db-s1);
+    font-family: var(--db-mono);
+    font-size: var(--db-t-xs);
+    color: var(--db-muted);
+    word-break: break-all;
+}
+
+.db-alert-p b {
+    color: var(--db-warn);
+    font-weight: 600;
+}

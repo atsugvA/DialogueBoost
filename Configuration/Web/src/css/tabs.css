@@ -1,0 +1,49 @@
+/*
+ * The page's second altitude: the two decisions, and the fine print behind them.
+ *
+ * Media is what to process, Profiles is how, and Advanced is everything a working server never
+ * needs to open. Three tabs rather than five stacked sections, because the old page's answer to
+ * hierarchy was a numbered label on every card.
+ */
+
+.db-tabs {
+    display: flex;
+    gap: var(--db-s5);
+    margin: var(--db-s5) 0 0;
+    border-bottom: 1px solid var(--db-rule);
+}
+
+.db-tab {
+    appearance: none;
+    margin: 0;
+    padding: 0 0 var(--db-s3);
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    font-family: inherit;
+    font-size: var(--db-t-sm);
+    font-weight: 700;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--db-muted);
+    cursor: pointer;
+}
+
+.db-tab:hover {
+    color: var(--db-fg-strong);
+}
+
+.db-tab[aria-selected="true"] {
+    color: var(--db-accent-text);
+    border-bottom-color: var(--db-accent);
+}
+
+.db-panel {
+    display: none;
+    padding-top: var(--db-s5);
+}
+
+.db-panel[data-on="1"] {
+    display: block;
+}

@@ -1,0 +1,54 @@
+<!--
+    What to process: the tree, and one sentence about what arrives after you close this page.
+
+    Both answer the same question, which is why they sit together rather than in a section each.
+-->
+<section class="db-panel" data-panel="media" data-on="1" role="tabpanel">
+    <div class="db-search">
+        <input is="emby-input" type="search" id="txtLibrarySearch"
+               placeholder="Search every library — series, seasons, episodes, films" />
+    </div>
+    <div class="db-search-note" id="librarySearchStatus"></div>
+
+    <div class="db-tree" id="libraryTree">
+        <div class="db-tree-empty">Reading the library…</div>
+    </div>
+
+    <div class="db-notice" id="selectionNotice"></div>
+
+    <div class="db-cover">
+        <div class="db-cover-head">
+            <label>
+                <input is="emby-checkbox" type="checkbox" id="chkCoverNewMedia" checked />
+                <span>Keep up with new media automatically</span>
+            </label>
+        </div>
+        <p>
+            Anything that lands under the rows above is covered on its own — you do not need to come
+            back here after a download. Turn this off to freeze every row to what it held when you
+            chose it.
+        </p>
+        <div class="db-cover-rules" id="coverRules" data-settled="0">
+            <span>
+                <label for="selNewMediaTrigger">When something new turns up</label>
+                <select is="emby-select" id="selNewMediaTrigger">
+                    <option value="OnScheduledRun">wait for the next scheduled run</option>
+                    <option value="WhenSettled">start a run once arrivals go quiet</option>
+                </select>
+            </span>
+            <span class="db-settle">
+                <label for="txtNewMediaSettleMinutes">after</label>
+                <input is="emby-input" type="number" id="txtNewMediaSettleMinutes"
+                       min="1" max="720" step="1" value="15" />
+                <label for="txtNewMediaSettleMinutes">minutes of quiet</label>
+            </span>
+            <span>
+                <label for="selNewLibraryPolicy">A whole new library</label>
+                <select is="emby-select" id="selNewLibraryPolicy">
+                    <option value="FlagOnly">flag it, don't include it</option>
+                    <option value="AutoInclude">include it automatically</option>
+                </select>
+            </span>
+        </div>
+    </div>
+</section>

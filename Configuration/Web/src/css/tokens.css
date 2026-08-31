@@ -1,0 +1,76 @@
+/*
+ * The page's palette and scale, in one place.
+ *
+ * Jellyfin publishes no CSS custom properties to inherit: its six built-in themes are
+ * class-based CSS, and they differ in accent as well as in ground — Purple Haze's accent is
+ * #48c3c8 where every other theme's is #00a4dc. So a hardcoded palette is wrong on at least one
+ * shipped theme, and wrong on every theme nobody has written yet.
+ *
+ * These are therefore *our* tokens, and js/theme.js fills them in at runtime from the colours
+ * Jellyfin actually rendered. The values here are only what a page shows before that runs, or if
+ * it cannot: Jellyfin's dark theme, which is the server default.
+ *
+ * Rule for everything downstream: no rule in this page may name a colour. If one needs a colour
+ * that is not a token here, the token is missing — add it, and give theme.js somewhere to read
+ * it from.
+ */
+
+#dialogueBoostConfigPage {
+    /* ── Probed. theme.js overwrites every one of these. ─────────────────────────────────── */
+    --db-bg: #101010;                       /* html                     background-color */
+    --db-fg: rgba(255, 255, 255, .8);       /* html                     color            */
+    --db-muted: rgba(255, 255, 255, .5);    /* .fieldDescription        color            */
+    --db-label: rgba(255, 255, 255, .7);    /* .inputLabel              color            */
+    --db-accent: #00a4dc;                   /* .button-submit           background-color */
+    --db-accent-ink: #fff;                  /* .button-submit           color            */
+    --db-surface: #202020;                  /* .paperList               background-color */
+    --db-raised: #303030;                   /* .raised                  background-color */
+    --db-input: #292929;                    /* .emby-input              background-color */
+    --db-input-bd: #292929;                 /* .emby-input              border-color     */
+    --db-danger: #cb272a;                   /* .button-delete           background-color */
+    --db-danger-ink: #fff;                  /* .button-delete           color            */
+    --db-radius: .2em;                      /* .emby-input              border-radius    */
+    --db-radius-card: 0;                    /* .paperList               border-radius    */
+
+    /* ── Derived from the probed pair, because Jellyfin states none of them. ─────────────── */
+    --db-fg-strong: #fff;                   /* the foreground at full opacity                */
+    --db-accent-text: #00a4dc;              /* the accent, walked until it is readable on bg */
+    --db-accent-soft: rgba(0, 164, 220, .13);
+    --db-rule: rgba(255, 255, 255, .13);    /* the foreground, barely there                  */
+    --db-hover: rgba(255, 255, 255, .07);
+    --db-shade: rgba(255, 255, 255, .04);
+    --db-warn: #e0a030;                     /* amber, walked until it is readable on bg      */
+    --db-warn-soft: rgba(224, 160, 48, .14);
+
+    /* ── Not probed: shape and rhythm are ours to choose. ────────────────────────────────── */
+
+    /*
+     * Sized in rem throughout, so the page follows the root size Jellyfin sets responsively
+     * (93%, and 82% under its small-screen rules) instead of fighting it. 1rem is ~14.9px on a
+     * desktop dashboard.
+     */
+    --db-t-micro: .64rem;                   /* the mono eyebrow labels                       */
+    --db-t-xs: .77rem;                      /* hints, secondary text                         */
+    --db-t-sm: .84rem;                      /* dense UI text — tree rows, table cells        */
+    --db-t-md: .88rem;                      /* the page's body size                          */
+    --db-t-lg: 1.02rem;                     /* card titles                                   */
+    --db-t-xl: 1.28rem;                     /* the numbers in the status band                */
+    --db-t-2xl: 1.42rem;                    /* the page title                                */
+
+    --db-s1: .25rem;
+    --db-s2: .5rem;
+    --db-s3: .75rem;
+    --db-s4: 1rem;
+    --db-s5: 1.5rem;
+    --db-s6: 2rem;
+
+    /*
+     * Jellyfin's own face is Noto Sans and the page inherits it rather than restating it.
+     * Only the monospace stack is ours, and it names no downloadable font: a config page that
+     * reaches the network to render is a page that breaks on a server without one.
+     */
+    --db-mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    /* The one rule the inherited stylesheet had that was not a hardcoded colour. */
+    line-height: 1.5;
+}
