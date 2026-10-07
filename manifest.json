@@ -3,6 +3,14 @@
     "guid": "a818318e-49b0-466d-963a-4467c6999b10",
     "versions": [
       {
+        "version": "1.1.0.0",
+        "changelog": "See https://github.com/atsugvA/DialogueBoost/releases/tag/v1.1.0.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/atsugvA/DialogueBoost/releases/download/v1.1.0.0/dialogue-boost_1.1.0.0.zip",
+        "checksum": "64018554fa913235d74ec2f310a58bc1",
+        "timestamp": "2026-10-07T11:43:08.0000000Z"
+      },
+      {
         "version": "1.0.0.0",
         "changelog": "See https://github.com/atsugvA/DialogueBoost/releases/tag/v1.0.0.0",
         "targetAbi": "10.11.0.0",
